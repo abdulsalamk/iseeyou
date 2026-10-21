@@ -1,0 +1,1 @@
+Place the exported yolo11n.mlpackage here and regenerate the project. Xcode compiles it into yolo11n.mlmodelc. Model weights are not committed. See the root README for export instructions and licence information.

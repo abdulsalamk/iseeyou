@@ -1,0 +1,424 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		0CEA0F598CFA1C302F30B6BC /* Detection.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3D6E97F8AE72201F61A278D /* Detection.swift */; };
+		10E79A33C7A472F2DC20404D /* CameraScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3BD40B7849A3797D5F19112B /* CameraScreen.swift */; };
+		116AB28A72B98C8A921EE0C6 /* DetectionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7196EEBA195DAE7C56F2B1B /* DetectionTests.swift */; };
+		4E649F691FE56EE101F80B61 /* CameraEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83A8FA7B540E7FEE73AA20DB /* CameraEngine.swift */; };
+		65AF24B3530A082E638CFBEA /* ISeeYouApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 32001EDD2F139DA2770009E6 /* ISeeYouApp.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		DF923DCEC54FC9DB6396C8E3 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = F5465D63FFFB250FC6D8DB70 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 3D92BB5D3A395184F5FA5919;
+			remoteInfo = ISeeYou;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		07CF1EB566389D83D9C95A5F /* ISeeYouTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = ISeeYouTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		07F933631D2672B8D64023DD /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		32001EDD2F139DA2770009E6 /* ISeeYouApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ISeeYouApp.swift; sourceTree = "<group>"; };
+		3BD40B7849A3797D5F19112B /* CameraScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraScreen.swift; sourceTree = "<group>"; };
+		83A8FA7B540E7FEE73AA20DB /* CameraEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraEngine.swift; sourceTree = "<group>"; };
+		B3D6E97F8AE72201F61A278D /* Detection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Detection.swift; sourceTree = "<group>"; };
+		D7196EEBA195DAE7C56F2B1B /* DetectionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DetectionTests.swift; sourceTree = "<group>"; };
+		DD308043EA899FBA5CD7843B /* ISeeYou.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = ISeeYou.app; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		0CD1DBE0C31DBF1BA5CADD65 /* ISeeYouTests */ = {
+			isa = PBXGroup;
+			children = (
+				D7196EEBA195DAE7C56F2B1B /* DetectionTests.swift */,
+			);
+			path = ISeeYouTests;
+			sourceTree = "<group>";
+		};
+		391B32E48EC158F4F109E980 = {
+			isa = PBXGroup;
+			children = (
+				C579F82F51B2E2CB72FA6456 /* ISeeYou */,
+				0CD1DBE0C31DBF1BA5CADD65 /* ISeeYouTests */,
+				4C49299B59CF788F9F515D3F /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		4C49299B59CF788F9F515D3F /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				DD308043EA899FBA5CD7843B /* ISeeYou.app */,
+				07CF1EB566389D83D9C95A5F /* ISeeYouTests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		C579F82F51B2E2CB72FA6456 /* ISeeYou */ = {
+			isa = PBXGroup;
+			children = (
+				83A8FA7B540E7FEE73AA20DB /* CameraEngine.swift */,
+				3BD40B7849A3797D5F19112B /* CameraScreen.swift */,
+				B3D6E97F8AE72201F61A278D /* Detection.swift */,
+				07F933631D2672B8D64023DD /* Info.plist */,
+				32001EDD2F139DA2770009E6 /* ISeeYouApp.swift */,
+			);
+			path = ISeeYou;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		3D92BB5D3A395184F5FA5919 /* ISeeYou */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 220EDA9FE22A23C122933047 /* Build configuration list for PBXNativeTarget "ISeeYou" */;
+			buildPhases = (
+				64AD8DFCF705EFF8C835FCA4 /* Sources */,
+				C2209BCEAD2D64E3DA519E5A /* Compile optional YOLO11n model */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = ISeeYou;
+			packageProductDependencies = (
+			);
+			productName = ISeeYou;
+			productReference = DD308043EA899FBA5CD7843B /* ISeeYou.app */;
+			productType = "com.apple.product-type.application";
+		};
+		7112811A665AFDB329A29FDF /* ISeeYouTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 082C47433150033E8925AA0D /* Build configuration list for PBXNativeTarget "ISeeYouTests" */;
+			buildPhases = (
+				B38981D5C6DB9753B3397CA8 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				A567EFCE8D6D98F3EC9C827C /* PBXTargetDependency */,
+			);
+			name = ISeeYouTests;
+			packageProductDependencies = (
+			);
+			productName = ISeeYouTests;
+			productReference = 07CF1EB566389D83D9C95A5F /* ISeeYouTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		F5465D63FFFB250FC6D8DB70 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+				};
+			};
+			buildConfigurationList = 6B46C564A3FA7FFC91C01DF9 /* Build configuration list for PBXProject "ISeeYou" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = 391B32E48EC158F4F109E980;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 4C49299B59CF788F9F515D3F /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				3D92BB5D3A395184F5FA5919 /* ISeeYou */,
+				7112811A665AFDB329A29FDF /* ISeeYouTests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		C2209BCEAD2D64E3DA519E5A /* Compile optional YOLO11n model */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Compile optional YOLO11n model";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "if [ -d \"$SRCROOT/ISeeYou/Models/yolo11n.mlpackage\" ]; then\n  mkdir -p \"$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH\"\n  xcrun coremlcompiler compile \"$SRCROOT/ISeeYou/Models/yolo11n.mlpackage\" \"$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH\"\nfi\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		64AD8DFCF705EFF8C835FCA4 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				4E649F691FE56EE101F80B61 /* CameraEngine.swift in Sources */,
+				10E79A33C7A472F2DC20404D /* CameraScreen.swift in Sources */,
+				0CEA0F598CFA1C302F30B6BC /* Detection.swift in Sources */,
+				65AF24B3530A082E638CFBEA /* ISeeYouApp.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B38981D5C6DB9753B3397CA8 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				116AB28A72B98C8A921EE0C6 /* DetectionTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		A567EFCE8D6D98F3EC9C827C /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 3D92BB5D3A395184F5FA5919 /* ISeeYou */;
+			targetProxy = DF923DCEC54FC9DB6396C8E3 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		2F2986C9AB50FADC7450CF32 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.iseeyou.ISeeYouTests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/ISeeYou.app/ISeeYou";
+			};
+			name = Release;
+		};
+		4B57B6FF2A720A6E1EC63651 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		62EEBBEA8017BCC91A619C83 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.iseeyou.ISeeYouTests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/ISeeYou.app/ISeeYou";
+			};
+			name = Debug;
+		};
+		73B4B010CD8E260E03F80DDC /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = ISeeYou/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.iseeyou.research;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		835BBFE0184DE737FE331DE1 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = ISeeYou/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.iseeyou.research;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+		F343C700012324F287A7C59F /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		082C47433150033E8925AA0D /* Build configuration list for PBXNativeTarget "ISeeYouTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				62EEBBEA8017BCC91A619C83 /* Debug */,
+				2F2986C9AB50FADC7450CF32 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		220EDA9FE22A23C122933047 /* Build configuration list for PBXNativeTarget "ISeeYou" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				73B4B010CD8E260E03F80DDC /* Debug */,
+				835BBFE0184DE737FE331DE1 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		6B46C564A3FA7FFC91C01DF9 /* Build configuration list for PBXProject "ISeeYou" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				4B57B6FF2A720A6E1EC63651 /* Debug */,
+				F343C700012324F287A7C59F /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = F5465D63FFFB250FC6D8DB70 /* Project object */;
+}

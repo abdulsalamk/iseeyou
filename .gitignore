@@ -218,3 +218,14 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# I See You local build and model artifacts
+DerivedData/
+.build/
+.venv/
+*.xcuserstate
+xcuserdata/
+*.pt
+*.mlpackage/
+*.mlmodelc/
+__pycache__/
