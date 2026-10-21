@@ -10,7 +10,7 @@ The phone camera remains the default. Select Meta glasses to use the glasses cam
 - Wear the powered-on glasses with the arms open, connected to Meta AI.
 - In I See You, select Meta glasses, tap Connect Meta glasses, acknowledge the unverified development app, then tap Allow glasses camera.
 - Choose the glasses in Audio output. The app suppresses glasses-mode speech unless iOS reports a Bluetooth audio route; verify that the selected route is the glasses.
-- Press Start camera manually. Stop and backgrounding end capture; returning to the app does not restart it.
+- Press Start camera manually. Stop ends capture. The glasses lock-screen update preserves an explicitly started glasses session across lock and app switching; phone-camera capture still stops when inactive. Neither source starts automatically on launch.
 
 Developer Mode uses the iseeyou custom URL scheme. This build contains no portal client token. SDK analytics and crash reporting are opted out. A production universal-link deployment requires separate association validation and suitable signing entitlements.
 
@@ -27,3 +27,12 @@ The existing 32 device unit checks passed before this readiness change; the read
 After installing the glasses-side DAT component in Meta AI (the user reported version 1.0.0.0), the user confirmed live glasses video and Test Voice in the glasses speakers. Automatic distance descriptions initially remained silent. Inspection showed a live preview with infinite frame age: the DAT sample timestamp could not be compared directly with the iPhone host clock.
 
 For glasses only, the experimental description path now measures elapsed local time from SDK frame delivery through inference. The UI names this metric "Since delivery". It does not measure capture age or wireless transport latency; the existing 500 ms local processing limit and generation cancellation remain. Phone capture retains its host-clock timestamp check. Hazard speech still abstains because validated geometry is unavailable. This is not validation of glasses distance accuracy or end-to-end latency. Hardware speech retest is pending this update.
+
+
+## Lock-screen update
+
+Meta's official background guide: https://github.com/facebook/meta-wearables-dat-ios/discussions/142
+
+The glasses lifecycle now preserves a user-started session on inactivity/background. Start activates a playback audio session, which stays active between spoken descriptions and is released on Stop, source changes, or a terminal session failure. The audio background mode is declared alongside Bluetooth and external accessory modes. No microphone capture or silent audio loop is added. Core ML uses CPU/Neural Engine rather than GPU; depth resizing uses software Core Image. Glasses preview rendering is skipped while inactive. Experimental distance speech and its freshness limits remain in place.
+
+This implementation requires physical locked-screen verification without an attached debugger or remote screen viewer. It does not guarantee iOS will permit indefinite execution, and SDK/device interruptions can still stop a session. Meta's guide notes decoder constraints; the current raw SDK stream still needs verification on this phone's OS. Unlock and tap Stop camera to end a running glasses session. Phone-camera background capture remains unsupported.

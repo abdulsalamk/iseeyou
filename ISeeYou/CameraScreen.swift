@@ -20,7 +20,7 @@ struct CameraScreen: View {
                     Button("Allow glasses camera") { engine.allowGlassesCamera() }
                     TwoLineExplanation(text: engine.glassesStatus).font(.caption)
                     HStack { Text("Audio output: choose your glasses").font(.caption); AudioOutputPicker().frame(width: 44, height: 44) }
-                    Text("Wear and open your glasses. This development build requires Developer Mode in the Meta companion app. Camera and speech still stop when I See You goes into the background.").font(.caption)
+                    Text("Wear and open your glasses. Developer Mode is required. Once started, glasses camera and speech can continue with the phone locked. Unlock and tap Stop camera to end the session.").font(.caption)
                 }
                 Button(engine.starting ? "Cancel camera startup" : (engine.running ? "Stop camera" : "Start camera")) {
                     if engine.running || engine.starting { engine.stop() } else { engine.start() }

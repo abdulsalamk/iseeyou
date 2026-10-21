@@ -52,7 +52,7 @@ targets:
         NSBluetoothAlwaysUsageDescription: Connect to your Meta glasses for camera input and spoken distance estimates.
         NSLocalNetworkUsageDescription: Connect to your Meta glasses over Wi-Fi for camera streaming.
         NSBonjourServices: ["_bonjour._tcp"]
-        UIBackgroundModes: [bluetooth-central, bluetooth-peripheral, external-accessory]
+        UIBackgroundModes: [audio, bluetooth-central, bluetooth-peripheral, external-accessory]
         UISupportedExternalAccessoryProtocols: [com.meta.ar.wearable]
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
     settings:

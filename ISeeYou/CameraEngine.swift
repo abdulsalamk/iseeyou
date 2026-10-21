@@ -72,6 +72,8 @@ final class CameraEngine: NSObject, ObservableObject, AVCaptureVideoDataOutputSa
     }
     private var permissionPending = false // main-thread only
     private var appActive = true // main-thread only
+    private let visibilityLock = NSLock()
+    private var foreground = true
     private var observers: [NSObjectProtocol] = []
     @Published private(set) var distanceStatus = "Distance: awaiting camera"
     @Published private(set) var lastDistanceFrame = Date.distantPast
@@ -108,9 +110,11 @@ final class CameraEngine: NSObject, ObservableObject, AVCaptureVideoDataOutputSa
 
     func sceneChanged(active: Bool, background: Bool) {
         appActive = active
+        visibilityLock.withLock { foreground = active }
         // The iOS permission alert makes the scene inactive. Preserve that
         // explicit start request; a real background transition still cancels it.
-        if CameraLifecyclePolicy.shouldStop(active: active, background: background, permissionPending: permissionPending) {
+        if CameraLifecyclePolicy.shouldStop(active: active, background: background, permissionPending: permissionPending,
+                                            glassesSessionRequested: cameraSource == .glasses && wantsRunning) {
             stop(reason: "Camera stopped while app inactive. Tap Start to resume.")
         } else if active, wantsRunning, permissionPending,
                   AVCaptureDevice.authorizationStatus(for: .video) == .authorized {
@@ -155,6 +159,8 @@ final class CameraEngine: NSObject, ObservableObject, AVCaptureVideoDataOutputSa
 
     private func launchGlasses() {
         let lease = generation
+        do { try alerts.beginGlassesAudio() }
+        catch { stop(reason: "Cannot start glasses audio: " + error.localizedDescription); return }
         inferenceQueue.async { [self] in
             guard generation == lease else { return }
             do {
@@ -289,7 +295,7 @@ final class CameraEngine: NSObject, ObservableObject, AVCaptureVideoDataOutputSa
     private func loadModel() throws {
         guard let url = Bundle.main.url(forResource: "yolo11n", withExtension: "mlmodelc") else { return }
         let config = MLModelConfiguration()
-        config.computeUnits = .all
+        config.computeUnits = .cpuAndNeuralEngine
         request = VNCoreMLRequest(model: try VNCoreMLModel(for: MLModel(contentsOf: url, configuration: config)))
         request?.imageCropAndScaleOption = .scaleFill
     }
@@ -311,6 +317,7 @@ final class CameraEngine: NSObject, ObservableObject, AVCaptureVideoDataOutputSa
         hazardDecisions = []
         alertStatus = "Stopped; pending speech cancelled"
         alerts.reset()
+        alerts.endGlassesAudio()
         let lease = generation
         queue.async { [self] in
             session.stopRunning()
@@ -351,12 +358,12 @@ final class CameraEngine: NSObject, ObservableObject, AVCaptureVideoDataOutputSa
     }
     private func processFrame(_ sampleBuffer: CMSampleBuffer, lease: UUID, external: Bool, receivedAt: TimeInterval? = nil) {
         guard generation == lease, let buffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
-        if external {
+        if external && visibilityLock.withLock({ foreground }) {
             let image = CIImage(cvPixelBuffer: buffer)
             let preview = previewContext.createCGImage(image, from: image.extent).map { UIImage(cgImage: $0) }
             let ratio = Double(CVPixelBufferGetWidth(buffer)) / Double(CVPixelBufferGetHeight(buffer))
             DispatchQueue.main.async {
-                guard self.wantsRunning, self.generation == lease else { return }
+                guard self.appActive, self.wantsRunning, self.generation == lease else { return }
                 self.glassesPreview = preview; self.previewAspectRatio = ratio
             }
         }

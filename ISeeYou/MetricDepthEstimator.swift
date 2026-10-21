@@ -13,13 +13,13 @@ struct ObjectDistance: Equatable {
 final class MetricDepthEstimator {
     static let modelID = "hypersim-small-294x518-v1"
     private let model: MLModel
-    private let context = CIContext(options: [.cacheIntermediates: false])
+    private let context = CIContext(options: [.cacheIntermediates: false, .useSoftwareRenderer: true])
     private let width = 294, height = 518
     init() throws {
         guard let url = Bundle.main.url(forResource: "MetricDepthSmall", withExtension: "mlmodelc") else {
             throw NSError(domain: "Depth", code: 1, userInfo: [NSLocalizedDescriptionKey: "Metric depth model missing"])
         }
-        let config = MLModelConfiguration(); config.computeUnits = .all
+        let config = MLModelConfiguration(); config.computeUnits = .cpuAndNeuralEngine
         model = try MLModel(contentsOf: url, configuration: config)
     }
     func estimate(_ buffer: CVPixelBuffer, detections: [Detection]) throws -> [Detection] {

@@ -9,6 +9,17 @@ protocol SpeechAlerting: AnyObject {
 final class SpeechAlertService: NSObject, SpeechAlerting, AVSpeechSynthesizerDelegate {
     private let synthesizer = AVSpeechSynthesizer()
     var requiresBluetoothOutput = false
+    private var glassesAudioActive = false
+    func beginGlassesAudio() throws {
+        let audio = AVAudioSession.sharedInstance()
+        try audio.setCategory(.playback, mode: .spokenAudio, options: [.mixWithOthers])
+        try audio.setActive(true)
+        glassesAudioActive = true
+    }
+    func endGlassesAudio() {
+        glassesAudioActive = false
+        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+    }
     var onStatus: ((String) -> Void)?
     override init() {
         super.init()
@@ -19,13 +30,13 @@ final class SpeechAlertService: NSObject, SpeechAlerting, AVSpeechSynthesizerDel
         guard !synthesizer.isSpeaking else { return }
         do {
             let audio = AVAudioSession.sharedInstance()
-            try audio.setCategory(.playback, mode: .spokenAudio, options: [.duckOthers])
+            try audio.setCategory(.playback, mode: .spokenAudio, options: glassesAudioActive ? [.mixWithOthers] : [.duckOthers])
             try audio.setActive(true)
             if requiresBluetoothOutput && !audio.currentRoute.outputs.contains(where: {
                 [.bluetoothA2DP, .bluetoothHFP, .bluetoothLE].contains($0.portType)
             }) {
                 report("Select your glasses in Audio output before speaking.")
-                try? audio.setActive(false, options: .notifyOthersOnDeactivation)
+                if !glassesAudioActive { try? audio.setActive(false, options: .notifyOthersOnDeactivation) }
                 return
             }
             synthesizer.usesApplicationAudioSession = true
@@ -37,7 +48,7 @@ final class SpeechAlertService: NSObject, SpeechAlerting, AVSpeechSynthesizerDel
     }
     func cancel() {
         synthesizer.stopSpeaking(at: .immediate)
-        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+        if !glassesAudioActive { try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation) }
     }
     private func report(_ text: String) {
         #if DEBUG
@@ -49,7 +60,7 @@ final class SpeechAlertService: NSObject, SpeechAlerting, AVSpeechSynthesizerDel
         report("Voice speaking")
     }
     func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
-        if !synthesizer.isSpeaking {
+        if !glassesAudioActive && !synthesizer.isSpeaking {
             try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
         }
         report("Voice finished")
@@ -60,6 +71,8 @@ final class SpeechAlertService: NSObject, SpeechAlerting, AVSpeechSynthesizerDel
 }
 
 final class HazardAlertController {
+    func beginGlassesAudio() throws { try (speech as? SpeechAlertService)?.beginGlassesAudio() }
+    func endGlassesAudio() { (speech as? SpeechAlertService)?.endGlassesAudio() }
     private var policy: any AlertPolicyApplying
     private let speech: any SpeechAlerting
     private var interruptionObserver: NSObjectProtocol?
