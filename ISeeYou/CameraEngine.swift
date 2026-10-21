@@ -8,10 +8,13 @@ import UIKit
 final class CameraEngine: NSObject, ObservableObject, AVCaptureVideoDataOutputSampleBufferDelegate, @unchecked Sendable {
     let session = AVCaptureSession()
     private let queue = DispatchQueue(label: "iseeyou.camera", qos: .userInitiated)
+    private let inferenceQueue = DispatchQueue(label: "iseeyou.inference", qos: .userInitiated)
     @Published private(set) var detections: [Detection] = []
     @Published private(set) var status = "Camera stopped"
     @Published private(set) var denied = false
     @Published private(set) var running = false
+    @Published private(set) var starting = false
+    @Published private(set) var receivedFrames = 0
     @Published private(set) var inferenceMS = 0.0
     @Published private(set) var frameAgeMS = 0.0
     @Published private(set) var fps = 0.0
@@ -38,24 +41,76 @@ final class CameraEngine: NSObject, ObservableObject, AVCaptureVideoDataOutputSa
     @Published private(set) var alertStatus = "Speech off"
     private let assessor: any HazardAssessing = HazardAssessment()
     private let alerts = HazardAlertController()
-    private var generation = UUID() // main-thread lifecycle lease
+    private let generationLock = NSLock()
+    private var generationValue = UUID()
+    private var generation: UUID {
+        get { generationLock.withLock { generationValue } }
+        set { generationLock.withLock { generationValue = newValue } }
+    }
+    private var permissionPending = false // main-thread only
+    private var appActive = true // main-thread only
+    private var observers: [NSObjectProtocol] = []
     private var request: VNCoreMLRequest?
     private var configured = false
     private var wantsRunning = false // main-thread only
     private var frameCount = 0
     private var windowStart = CACurrentMediaTime()
 
+    override init() {
+        super.init()
+        cameraLog("initial authorization=\(AVCaptureDevice.authorizationStatus(for: .video).rawValue)")
+        observers.append(NotificationCenter.default.addObserver(forName: AVCaptureSession.runtimeErrorNotification, object: session, queue: .main) { [weak self] notification in
+            let error = notification.userInfo?[AVCaptureSessionErrorKey] as? NSError
+            self?.stop(reason: "Camera error: " + (error?.localizedDescription ?? "unknown capture error") + ". Tap Start to retry.")
+        })
+        observers.append(NotificationCenter.default.addObserver(forName: AVCaptureSession.wasInterruptedNotification, object: session, queue: .main) { [weak self] notification in
+            let reason = notification.userInfo?[AVCaptureSessionInterruptionReasonKey] as? NSNumber
+            self?.stop(reason: "Camera interrupted (\(reason?.stringValue ?? "unknown")). Close other camera apps and tap Start to retry.")
+        })
+    }
+
+    deinit { observers.forEach(NotificationCenter.default.removeObserver) }
+
+    func sceneChanged(active: Bool, background: Bool) {
+        appActive = active
+        // The iOS permission alert makes the scene inactive. Preserve that
+        // explicit start request; a real background transition still cancels it.
+        if CameraLifecyclePolicy.shouldStop(active: active, background: background, permissionPending: permissionPending) {
+            stop(reason: "Camera stopped while app inactive. Tap Start to resume.")
+        } else if active, wantsRunning, permissionPending,
+                  AVCaptureDevice.authorizationStatus(for: .video) == .authorized {
+            permissionPending = false
+            launch()
+        }
+    }
+
+    private func cameraLog(_ message: String) {
+        #if DEBUG
+        print("[ISeeYou.Camera] " + message)
+        #endif
+    }
+
     func start() {
+        cameraLog("Start tapped; authorization=\(AVCaptureDevice.authorizationStatus(for: .video).rawValue), wantsRunning=\(wantsRunning)")
         guard !wantsRunning else { return }
         wantsRunning = true
+        starting = true
+        receivedFrames = 0
+        status = "Starting rear camera…"
         generation = UUID()
         switch AVCaptureDevice.authorizationStatus(for: .video) {
         case .authorized: launch()
         case .notDetermined:
+            permissionPending = true
+            status = "Waiting for camera permission…"
             AVCaptureDevice.requestAccess(for: .video) { [weak self] granted in
                 DispatchQueue.main.async {
-                    guard let self, self.wantsRunning else { return }
-                    if granted { self.launch() } else { self.deny() }
+                    guard let self, self.wantsRunning, self.permissionPending else { return }
+                    if !granted { self.deny() }
+                    else if self.appActive {
+                        self.permissionPending = false
+                        self.launch()
+                    } else { self.status = "Camera allowed; waiting for app to become active…" }
                 }
             }
         default: deny()
@@ -64,6 +119,8 @@ final class CameraEngine: NSObject, ObservableObject, AVCaptureVideoDataOutputSa
 
     private func deny() {
         wantsRunning = false
+        starting = false
+        permissionPending = false
         denied = true
         status = "Camera access denied. Enable it in Settings."
     }
@@ -72,23 +129,48 @@ final class CameraEngine: NSObject, ObservableObject, AVCaptureVideoDataOutputSa
         denied = false
         let lease = generation
         queue.async { [self] in
+            guard generation == lease else { return }
             do {
+                cameraLog("configuring session")
                 if !configured { try configure() }
-                if request == nil { try loadModel() }
+                guard generation == lease else { return }
+                cameraLog("calling startRunning before model loading")
                 session.startRunning()
-                frameCount = 0
-                windowStart = CACurrentMediaTime()
+                let didStart = session.isRunning
+                cameraLog("startRunning returned: running=\(didStart), interrupted=\(session.isInterrupted)")
                 DispatchQueue.main.async {
                     guard self.wantsRunning, self.generation == lease else { return }
-                    self.running = true
-                    self.status = self.request == nil
-                        ? "Preview only — add yolo11n.mlpackage (see README)."
-                        : "Local object detection active • distance unavailable"
+                    self.starting = false
+                    self.running = didStart
+                    if !didStart {
+                        self.wantsRunning = false
+                        self.status = "Camera did not start. Close other camera apps, then retry."
+                    } else { self.status = "Camera active · loading object detector…" }
+                }
+                guard didStart else { return }
+                // Model preparation must not block camera start/stop or preview.
+                inferenceQueue.async { [self] in
+                    guard generation == lease else { return }
+                    frameCount = 0
+                    windowStart = CACurrentMediaTime()
+                    let modelStatus: String
+                    do {
+                        if request == nil { try loadModel() }
+                        modelStatus = request == nil ? "Camera active · preview only (model missing)" : "Camera active · object detection ready"
+                    } catch { modelStatus = "Camera active · preview only: detector failed to load: " + error.localizedDescription }
+                    cameraLog(modelStatus)
+                    DispatchQueue.main.async {
+                        guard self.wantsRunning, self.generation == lease else { return }
+                        self.status = modelStatus
+                    }
                 }
             } catch {
+                cameraLog("startup failed: \(error.localizedDescription)")
                 DispatchQueue.main.async {
                     guard self.generation == lease else { return }
                     self.wantsRunning = false
+                    self.starting = false
+                    self.running = false
                     self.status = error.localizedDescription
                 }
             }
@@ -113,7 +195,7 @@ final class CameraEngine: NSObject, ObservableObject, AVCaptureVideoDataOutputSa
             throw CameraError.message("Cannot configure camera frames.")
         }
         session.addOutput(output)
-        output.setSampleBufferDelegate(self, queue: queue)
+        output.setSampleBufferDelegate(self, queue: inferenceQueue)
         // Physically rotate buffers to portrait; Vision receives .up.
         if let connection = output.connection(with: .video), connection.isVideoRotationAngleSupported(90) {
             connection.videoRotationAngle = 90
@@ -129,8 +211,12 @@ final class CameraEngine: NSObject, ObservableObject, AVCaptureVideoDataOutputSa
         request?.imageCropAndScaleOption = .scaleFill
     }
 
-    func stop() {
+    func stop(reason: String = "Camera stopped") {
+        cameraLog("stop requested: " + reason)
         wantsRunning = false
+        permissionPending = false
+        starting = false
+        status = reason
         generation = UUID()
         running = false
         detections = []
@@ -145,14 +231,19 @@ final class CameraEngine: NSObject, ObservableObject, AVCaptureVideoDataOutputSa
                 self.running = false
                 self.detections = []
                 self.fps = 0
-                self.status = "Camera stopped"
             }
         }
     }
 
     func captureOutput(_ output: AVCaptureOutput, didOutput sampleBuffer: CMSampleBuffer, from connection: AVCaptureConnection) {
-        guard let request, let buffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
-        let lease = DispatchQueue.main.sync { self.generation }
+        let lease = generation
+        guard let buffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
+        DispatchQueue.main.async {
+            guard self.wantsRunning, self.generation == lease else { return }
+            self.receivedFrames += 1
+            if self.receivedFrames == 1 { self.cameraLog("camera delivered first video frame") }
+        }
+        guard let request else { return }
         let start = CACurrentMediaTime()
         do {
             try VNImageRequestHandler(cvPixelBuffer: buffer, orientation: .up).perform([request])

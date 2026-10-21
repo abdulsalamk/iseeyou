@@ -10,14 +10,24 @@
 		0CEA0F598CFA1C302F30B6BC /* Detection.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3D6E97F8AE72201F61A278D /* Detection.swift */; };
 		10E79A33C7A472F2DC20404D /* CameraScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3BD40B7849A3797D5F19112B /* CameraScreen.swift */; };
 		116AB28A72B98C8A921EE0C6 /* DetectionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7196EEBA195DAE7C56F2B1B /* DetectionTests.swift */; };
+		3F1F95DC3742BF74FF86E0F8 /* CameraLifecycleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 424945874503F6B65D68CE61 /* CameraLifecycleTests.swift */; };
 		4E649F691FE56EE101F80B61 /* CameraEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83A8FA7B540E7FEE73AA20DB /* CameraEngine.swift */; };
 		65AF24B3530A082E638CFBEA /* ISeeYouApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 32001EDD2F139DA2770009E6 /* ISeeYouApp.swift */; };
-		BF0000000000000000000000 /* HazardAssessment.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF0000000000000000000000; };
-		BF0000000000000000000001 /* AlertPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF0000000000000000000001; };
-		BF0000000000000000000002 /* SpeechAlertService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF0000000000000000000002; };
+		8739CD2CB5D19101793CB727 /* SpeechAlertService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 24B20B9A4C1677D141AC6D05 /* SpeechAlertService.swift */; };
+		AE312A7033320F1DE7B69A92 /* CameraStartupUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5861F32A9B8B6F58AE468FE4 /* CameraStartupUITests.swift */; };
+		B1465570EC3A04CC6380A731 /* HazardAssessment.swift in Sources */ = {isa = PBXBuildFile; fileRef = DDE3EA24702F375E2633F80D /* HazardAssessment.swift */; };
+		E6527DFD40084760C5EDFEAA /* AlertPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F28077046EAC0EFA7F2F583 /* AlertPolicy.swift */; };
+		ECBBCEF7FC2F9F4EBB4ABD3A /* CameraLifecyclePolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B855B6D35A156BAD5D646BF /* CameraLifecyclePolicy.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		3496A198E7103C86FD71B4A7 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = F5465D63FFFB250FC6D8DB70 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 3D92BB5D3A395184F5FA5919;
+			remoteInfo = ISeeYou;
+		};
 		DF923DCEC54FC9DB6396C8E3 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = F5465D63FFFB250FC6D8DB70 /* Project object */;
@@ -30,21 +40,26 @@
 /* Begin PBXFileReference section */
 		07CF1EB566389D83D9C95A5F /* ISeeYouTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = ISeeYouTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		07F933631D2672B8D64023DD /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		24B20B9A4C1677D141AC6D05 /* SpeechAlertService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeechAlertService.swift; sourceTree = "<group>"; };
 		32001EDD2F139DA2770009E6 /* ISeeYouApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ISeeYouApp.swift; sourceTree = "<group>"; };
 		3BD40B7849A3797D5F19112B /* CameraScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraScreen.swift; sourceTree = "<group>"; };
+		424945874503F6B65D68CE61 /* CameraLifecycleTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraLifecycleTests.swift; sourceTree = "<group>"; };
+		5861F32A9B8B6F58AE468FE4 /* CameraStartupUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraStartupUITests.swift; sourceTree = "<group>"; };
+		7F28077046EAC0EFA7F2F583 /* AlertPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AlertPolicy.swift; sourceTree = "<group>"; };
 		83A8FA7B540E7FEE73AA20DB /* CameraEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraEngine.swift; sourceTree = "<group>"; };
+		9B855B6D35A156BAD5D646BF /* CameraLifecyclePolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraLifecyclePolicy.swift; sourceTree = "<group>"; };
 		B3D6E97F8AE72201F61A278D /* Detection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Detection.swift; sourceTree = "<group>"; };
 		D7196EEBA195DAE7C56F2B1B /* DetectionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DetectionTests.swift; sourceTree = "<group>"; };
 		DD308043EA899FBA5CD7843B /* ISeeYou.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = ISeeYou.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		AF0000000000000000000000 /* HazardAssessment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HazardAssessment.swift; sourceTree = "<group>"; };
-		AF0000000000000000000001 /* AlertPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AlertPolicy.swift; sourceTree = "<group>"; };
-		AF0000000000000000000002 /* SpeechAlertService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeechAlertService.swift; sourceTree = "<group>"; };
+		DDE3EA24702F375E2633F80D /* HazardAssessment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HazardAssessment.swift; sourceTree = "<group>"; };
+		E2200A3F9C08AD1B85886AB6 /* ISeeYouUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = ISeeYouUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
 		0CD1DBE0C31DBF1BA5CADD65 /* ISeeYouTests */ = {
 			isa = PBXGroup;
 			children = (
+				424945874503F6B65D68CE61 /* CameraLifecycleTests.swift */,
 				D7196EEBA195DAE7C56F2B1B /* DetectionTests.swift */,
 			);
 			path = ISeeYouTests;
@@ -55,6 +70,7 @@
 			children = (
 				C579F82F51B2E2CB72FA6456 /* ISeeYou */,
 				0CD1DBE0C31DBF1BA5CADD65 /* ISeeYouTests */,
+				56AA00820BF05B245EF46945 /* ISeeYouUITests */,
 				4C49299B59CF788F9F515D3F /* Products */,
 			);
 			sourceTree = "<group>";
@@ -64,21 +80,31 @@
 			children = (
 				DD308043EA899FBA5CD7843B /* ISeeYou.app */,
 				07CF1EB566389D83D9C95A5F /* ISeeYouTests.xctest */,
+				E2200A3F9C08AD1B85886AB6 /* ISeeYouUITests.xctest */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		56AA00820BF05B245EF46945 /* ISeeYouUITests */ = {
+			isa = PBXGroup;
+			children = (
+				5861F32A9B8B6F58AE468FE4 /* CameraStartupUITests.swift */,
+			);
+			path = ISeeYouUITests;
 			sourceTree = "<group>";
 		};
 		C579F82F51B2E2CB72FA6456 /* ISeeYou */ = {
 			isa = PBXGroup;
 			children = (
-				AF0000000000000000000000 /* HazardAssessment.swift */,
-				AF0000000000000000000001 /* AlertPolicy.swift */,
-				AF0000000000000000000002 /* SpeechAlertService.swift */,
+				7F28077046EAC0EFA7F2F583 /* AlertPolicy.swift */,
 				83A8FA7B540E7FEE73AA20DB /* CameraEngine.swift */,
+				9B855B6D35A156BAD5D646BF /* CameraLifecyclePolicy.swift */,
 				3BD40B7849A3797D5F19112B /* CameraScreen.swift */,
 				B3D6E97F8AE72201F61A278D /* Detection.swift */,
+				DDE3EA24702F375E2633F80D /* HazardAssessment.swift */,
 				07F933631D2672B8D64023DD /* Info.plist */,
 				32001EDD2F139DA2770009E6 /* ISeeYouApp.swift */,
+				24B20B9A4C1677D141AC6D05 /* SpeechAlertService.swift */,
 			);
 			path = ISeeYou;
 			sourceTree = "<group>";
@@ -103,6 +129,24 @@
 			productName = ISeeYou;
 			productReference = DD308043EA899FBA5CD7843B /* ISeeYou.app */;
 			productType = "com.apple.product-type.application";
+		};
+		55D475AB23E28F506D72CCEC /* ISeeYouUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = DE5FB74585E513AEE8F74DEA /* Build configuration list for PBXNativeTarget "ISeeYouUITests" */;
+			buildPhases = (
+				DD0C60C89E45536304B0D240 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				9276E9469016A6E2B3355B63 /* PBXTargetDependency */,
+			);
+			name = ISeeYouUITests;
+			packageProductDependencies = (
+			);
+			productName = ISeeYouUITests;
+			productReference = E2200A3F9C08AD1B85886AB6 /* ISeeYouUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
 		};
 		7112811A665AFDB329A29FDF /* ISeeYouTests */ = {
 			isa = PBXNativeTarget;
@@ -131,6 +175,9 @@
 				BuildIndependentTargetsInParallel = YES;
 				LastUpgradeCheck = 1430;
 				TargetAttributes = {
+					55D475AB23E28F506D72CCEC = {
+						TestTargetID = 3D92BB5D3A395184F5FA5919;
+					};
 				};
 			};
 			buildConfigurationList = 6B46C564A3FA7FFC91C01DF9 /* Build configuration list for PBXProject "ISeeYou" */;
@@ -149,6 +196,7 @@
 			targets = (
 				3D92BB5D3A395184F5FA5919 /* ISeeYou */,
 				7112811A665AFDB329A29FDF /* ISeeYouTests */,
+				55D475AB23E28F506D72CCEC /* ISeeYouUITests */,
 			);
 		};
 /* End PBXProject section */
@@ -180,13 +228,14 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				BF0000000000000000000000 /* HazardAssessment.swift in Sources */,
-				BF0000000000000000000001 /* AlertPolicy.swift in Sources */,
-				BF0000000000000000000002 /* SpeechAlertService.swift in Sources */,
+				E6527DFD40084760C5EDFEAA /* AlertPolicy.swift in Sources */,
 				4E649F691FE56EE101F80B61 /* CameraEngine.swift in Sources */,
+				ECBBCEF7FC2F9F4EBB4ABD3A /* CameraLifecyclePolicy.swift in Sources */,
 				10E79A33C7A472F2DC20404D /* CameraScreen.swift in Sources */,
 				0CEA0F598CFA1C302F30B6BC /* Detection.swift in Sources */,
+				B1465570EC3A04CC6380A731 /* HazardAssessment.swift in Sources */,
 				65AF24B3530A082E638CFBEA /* ISeeYouApp.swift in Sources */,
+				8739CD2CB5D19101793CB727 /* SpeechAlertService.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -194,13 +243,27 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				3F1F95DC3742BF74FF86E0F8 /* CameraLifecycleTests.swift in Sources */,
 				116AB28A72B98C8A921EE0C6 /* DetectionTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		DD0C60C89E45536304B0D240 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AE312A7033320F1DE7B69A92 /* CameraStartupUITests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		9276E9469016A6E2B3355B63 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 3D92BB5D3A395184F5FA5919 /* ISeeYou */;
+			targetProxy = 3496A198E7103C86FD71B4A7 /* PBXContainerItemProxy */;
+		};
 		A567EFCE8D6D98F3EC9C827C /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 3D92BB5D3A395184F5FA5919 /* ISeeYou */;
@@ -209,6 +272,23 @@
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
+		25A068C103BD44D8D974C74A /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.iseeyou.ISeeYouUITests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = ISeeYou;
+			};
+			name = Release;
+		};
 		2F2986C9AB50FADC7450CF32 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -343,6 +423,23 @@
 			};
 			name = Release;
 		};
+		BCDA3F6A21320A7CA264A694 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.iseeyou.ISeeYouUITests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = ISeeYou;
+			};
+			name = Debug;
+		};
 		F343C700012324F287A7C59F /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -430,8 +527,16 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;
 		};
+		DE5FB74585E513AEE8F74DEA /* Build configuration list for PBXNativeTarget "ISeeYouUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				BCDA3F6A21320A7CA264A694 /* Debug */,
+				25A068C103BD44D8D974C74A /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
 /* End XCConfigurationList section */
 	};
 	rootObject = F5465D63FFFB250FC6D8DB70 /* Project object */;
 }
-

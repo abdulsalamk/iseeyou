@@ -44,10 +44,19 @@ targets:
     settings:
       base:
         GENERATE_INFOPLIST_FILE: YES
+  ISeeYouUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources: [ISeeYouUITests]
+    dependencies:
+      - target: ISeeYou
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
 schemes:
   ISeeYou:
     build:
       targets:
         ISeeYou: all
     test:
-      targets: [ISeeYouTests]
+      targets: [ISeeYouTests, ISeeYouUITests]

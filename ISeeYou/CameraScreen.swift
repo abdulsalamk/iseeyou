@@ -9,14 +9,16 @@ struct CameraScreen: View {
             VStack(alignment: .leading, spacing: 16) {
                 Text("I See You").font(.largeTitle.bold())
                 Text("OBJECT DETECTION • RESEARCH POC").font(.caption.bold()).foregroundStyle(.secondary)
-                Button(engine.running ? "Stop camera" : "Start camera") {
-                    if engine.running { engine.stop() } else { engine.start() }
-                }.buttonStyle(.borderedProminent)
+                Button(engine.starting ? "Cancel camera startup" : (engine.running ? "Stop camera" : "Start camera")) {
+                    if engine.running || engine.starting { engine.stop() } else { engine.start() }
+                }.buttonStyle(.borderedProminent).accessibilityIdentifier("cameraToggle")
                 if engine.denied {
                     Button("Open Settings") {
                         if let url = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(url) }
                     }
                 }
+                Text(engine.status).font(.callout).accessibilityIdentifier("cameraStatus")
+                Text("Received video frames: \(engine.receivedFrames)").font(.caption.monospacedDigit()).accessibilityIdentifier("cameraFrames")
                 ZStack {
                     CameraPreview(session: engine.session)
                     GeometryReader { proxy in
@@ -49,7 +51,6 @@ struct CameraScreen: View {
                 // Portrait 720p buffers and aspect-fit preview share exactly the same rectangle.
                 .aspectRatio(9.0 / 16.0, contentMode: .fit)
                 .background(.black).clipShape(RoundedRectangle(cornerRadius: 16))
-                Text(engine.status).font(.callout).accessibilityIdentifier("cameraStatus")
                 if engine.running && engine.fps > 0 {
                     let central = Set(engine.detections.filter(\.inPath).map(\.label)).sorted()
                     Text(central.isEmpty ? "No supported objects detected in centre" : "Central objects: " + central.joined(separator: ", "))
@@ -86,7 +87,19 @@ struct CameraScreen: View {
                     .font(.footnote).foregroundStyle(.secondary)
             }.padding()
         }
-        .onChange(of: scenePhase) { _, phase in if phase != .active { engine.stop() } }
+        .onAppear {
+            #if DEBUG
+            if ProcessInfo.processInfo.arguments.contains("--camera-startup-diagnostic") {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1) { engine.start() }
+            }
+            #endif
+        }
+        .onChange(of: scenePhase) { _, phase in
+            #if DEBUG
+            print("[ISeeYou.Camera] scenePhase=\(phase)")
+            #endif
+            engine.sceneChanged(active: phase == .active, background: phase == .background)
+        }
         .onDisappear { engine.stop() }
     }
     private func metric(_ name: String, _ value: String) -> some View {
@@ -98,6 +111,22 @@ struct CameraScreen: View {
 private final class PreviewSurface: UIView {
     override class var layerClass: AnyClass { AVCaptureVideoPreviewLayer.self }
     var preview: AVCaptureVideoPreviewLayer { layer as! AVCaptureVideoPreviewLayer }
+    private var previewObservation: NSKeyValueObservation?
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        observePreview()
+    }
+    required init?(coder: NSCoder) {
+        super.init(coder: coder)
+        observePreview()
+    }
+    private func observePreview() {
+        #if DEBUG
+        previewObservation = preview.observe(\.isPreviewing, options: [.initial, .new]) { layer, _ in
+            print("[ISeeYou.Camera] preview layer rendering=\(layer.isPreviewing)")
+        }
+        #endif
+    }
     override func layoutSubviews() {
         super.layoutSubviews()
         if let connection = preview.connection, connection.isVideoRotationAngleSupported(90) {

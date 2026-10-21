@@ -66,3 +66,9 @@ Read [the capability gaps, test matrix and illustrative decision states](docs/HA
 Tap **Test voice** to check native speech. Start the camera, then turn on **Speak object descriptions (preview)**. A supported object with at least 80% confidence whose bottom edge overlaps the candidate image corridor must persist for 0.7 seconds before it is described, for example “chair in front of the camera”. Descriptions repeat at most every eight seconds. This explicit preview mode describes objects; it does not establish floor contact, hazards, distance or safe walking space. It is separate from the hazard-warning mode described above, which still abstains without verified sensing. Enabling either mode switches the other off. Stop/background and audio interruption cancel speech. Camera migration to glasses is deferred.
 
 The voice preview and test button have additional XCTest source coverage; compilation, audible output and device behaviour remain unverified in this environment.
+
+## Camera startup troubleshooting
+
+The control now shows **Cancel camera startup** while starting, then **Stop camera** after the capture session starts. Status and a received-video-frame counter appear above the preview. Object-model preparation runs separately, so a missing/failed detector can still show a camera preview. Camera permission errors provide an Open Settings action; interruption/runtime errors show retry guidance. Returning from the background still requires Start. A pending first-use permission request survives the temporary inactive permission alert.
+
+See [camera startup findings and verification limits](docs/CAMERA_STARTUP.md). Physical-device UI tests require their own test-runner provisioning profile, in addition to the app's signing profile.
