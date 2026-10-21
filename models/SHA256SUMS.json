@@ -1,0 +1,6 @@
+{
+  "models/yolo11n.pt": "0ebbc80d4a7680d14987a577cd21342b65ecfd94632bd9a8da63ae6417644ee1",
+  "ISeeYou/Models/yolo11n.mlpackage/Data/com.apple.CoreML/model.mlmodel": "a1cf243c202adcc2064cbea8f7f31136be886858c15d194447510dbac837ddb2",
+  "ISeeYou/Models/yolo11n.mlpackage/Data/com.apple.CoreML/weights/weight.bin": "d291ffef8e23d2d944ef6c17470d83b157f5d3300fad742a1a27af1bad7adc4f",
+  "ISeeYou/Models/yolo11n.mlpackage/Manifest.json": "5ea2f3a587e18335d5774a7fb230ccfd40ac1779bb6ba87ffc8c119b21da3de9"
+}

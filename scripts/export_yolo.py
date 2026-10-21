@@ -1,11 +1,13 @@
-"""Run in a dedicated venv; downloads official YOLO11n weights, then exports Core ML."""
+"""Run in a dedicated venv; export the versioned official YOLO11n checkpoint."""
 from pathlib import Path
 import shutil
 from ultralytics import YOLO
 
-output = Path(YOLO("yolo11n.pt").export(format="coreml", imgsz=640, nms=True, half=True))
-destination = Path(__file__).resolve().parents[1] / "ISeeYou" / "Models" / "yolo11n.mlpackage"
+root = Path(__file__).resolve().parents[1]
+destination = root / "ISeeYou" / "Models" / "yolo11n.mlpackage"
 if destination.exists():
-    raise SystemExit(f"Refusing to overwrite {destination}")
+    raise SystemExit(f"Refusing to overwrite {destination}; move it outside the repo before exporting.")
+checkpoint = root / "models" / "yolo11n.pt"
+output = Path(YOLO(str(checkpoint)).export(format="coreml", imgsz=640, nms=True, half=True))
 shutil.copytree(output, destination)
-print(f"Exported {destination}. Regenerate the Xcode project with xcodegen generate.")
+print(f"Exported {destination}. Xcode compiles this package during the next build.")

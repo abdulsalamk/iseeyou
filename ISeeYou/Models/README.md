@@ -1,1 +1,1 @@
-Place the exported yolo11n.mlpackage here and regenerate the project. Xcode compiles it into yolo11n.mlmodelc. Model weights are not committed. See the root README for export instructions and licence information.
+The exported YOLO11n Core ML package is versioned here. Xcode compiles it into the app through the optional model build phase. See models/README.md for upstream provenance, licence and checksums, and the root README for rebuilding.

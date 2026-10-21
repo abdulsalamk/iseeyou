@@ -8,11 +8,11 @@ Native SwiftUI, AVFoundation, Vision and Core ML application implementing milest
 2. Open `ISeeYou.xcodeproj`. Select the ISeeYou target, choose your development team in Signing & Capabilities, and change `com.iseeyou.research` to your own unique identifier.
 3. Connect your standard iPhone 16, trust the Mac, enable Developer Mode and select it as the run destination. Press Cmd+R.
 4. Tap **Start camera** and grant camera permission. Nothing is recorded or uploaded. Returning from the background requires tapping Start again.
-5. Without model weights, the live preview works and displays explicit model setup guidance. For detections, export the model below, regenerate the project and rebuild.
+5. The tested YOLO11n Core ML package is included, so detection works without installing Python or exporting a model. If you remove the model, preview still works and displays missing-model guidance.
 
 ## YOLO11n model setup
 
-Model binaries are deliberately excluded from Git. Use a separate Python 3.11 environment on the Mac with at least 3 GB free disk space. Pinned packages avoid the conversion failure observed with PyTorch 2.14.1:
+The bundled model is at `ISeeYou/Models/yolo11n.mlpackage` and its original checkpoint is at `models/yolo11n.pt`. See [model provenance and checksums](models/README.md). To regenerate it, move the existing package outside the repo first (the export script refuses to overwrite it). Use a separate Python 3.11 environment on the Mac with at least 3 GB free disk space. Pinned packages avoid the conversion failure observed with PyTorch 2.14.1:
 
 ```sh
 python3.11 -m venv .venv
@@ -25,7 +25,7 @@ xcodegen generate
 
 The script downloads official `yolo11n.pt`, exports a 640x640 FP16 Core ML package with **NMS enabled**, and copies it into `ISeeYou/Models/yolo11n.mlpackage`. An optional build phase compiles it into the bundled `yolo11n.mlmodelc`. The app requires Vision recognized-object output from the NMS export, not raw prediction tensors. Record the installed package versions, weight hash and export logs for any benchmark; The pinned export has been verified on this Mac; recognition accuracy and physical iPhone 16 performance remain unverified.
 
-[Ultralytics Core ML export documentation](https://docs.ultralytics.com/integrations/coreml/) describes this workflow. Review [Ultralytics licensing](https://www.ultralytics.com/license) before distributing weights or an application containing them; do not assume a proprietary redistribution licence. No model licence is granted by this repository.
+[Ultralytics Core ML export documentation](https://docs.ultralytics.com/integrations/coreml/) describes this workflow. Review [Ultralytics licensing](https://www.ultralytics.com/license) before distributing weights or an application containing them; do not assume a proprietary redistribution licence. The model and this POC implementation are distributed under AGPL-3.0; see [LICENSE](LICENSE) and [model provenance](models/README.md).
 
 ## Behaviour and limitations
 
