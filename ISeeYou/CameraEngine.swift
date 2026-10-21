@@ -32,7 +32,8 @@ final class CameraEngine: NSObject, ObservableObject, AVCaptureVideoDataOutputSa
             alerts.reset()
         }
     }
-    func testVoice() { alerts.testVoice() }
+    @Published private(set) var voiceStatus = "Voice idle"
+    func testVoice() { voiceStatus = "Testing voice…"; alerts.testVoice() }
     @Published var sensitivity: WarningSensitivity = .conservative {
         didSet { alerts.reset() }
     }
@@ -60,6 +61,7 @@ final class CameraEngine: NSObject, ObservableObject, AVCaptureVideoDataOutputSa
 
     override init() {
         super.init()
+        alerts.statusChanged = { [weak self] status in self?.voiceStatus = status }
         cameraLog("initial authorization=\(AVCaptureDevice.authorizationStatus(for: .video).rawValue)")
         observers.append(NotificationCenter.default.addObserver(forName: AVCaptureSession.runtimeErrorNotification, object: session, queue: .main) { [weak self] notification in
             let error = notification.userInfo?[AVCaptureSessionErrorKey] as? NSError

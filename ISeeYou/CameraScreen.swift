@@ -17,7 +17,10 @@ struct CameraScreen: View {
                         if let url = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(url) }
                     }
                 }
-                Text(engine.status).font(.callout).accessibilityIdentifier("cameraStatus")
+                Button("Test voice") { engine.testVoice() }.buttonStyle(.bordered).accessibilityIdentifier("testVoice")
+                Toggle("Speak object descriptions (preview)", isOn: $engine.detectionVoiceEnabled)
+                TwoLineExplanation(text: engine.voiceStatus).font(.caption).accessibilityIdentifier("voiceStatus")
+                TwoLineExplanation(text: engine.status).font(.callout).accessibilityIdentifier("cameraStatus")
                 Text("Received video frames: \(engine.receivedFrames)").font(.caption.monospacedDigit()).accessibilityIdentifier("cameraFrames")
                 ZStack {
                     CameraPreview(session: engine.session)
@@ -51,11 +54,11 @@ struct CameraScreen: View {
                 // Portrait 720p buffers and aspect-fit preview share exactly the same rectangle.
                 .aspectRatio(9.0 / 16.0, contentMode: .fit)
                 .background(.black).clipShape(RoundedRectangle(cornerRadius: 16))
-                if engine.running && engine.fps > 0 {
-                    let central = Set(engine.detections.filter(\.inPath).map(\.label)).sorted()
-                    Text(central.isEmpty ? "No supported objects detected in centre" : "Central objects: " + central.joined(separator: ", "))
-                        .font(.callout.bold())
-                }
+                let central = Set(engine.detections.filter(\.inPath).map(\.label)).sorted()
+                TwoLineExplanation(text: engine.running && engine.fps > 0
+                    ? (central.isEmpty ? "No supported objects detected in centre" : "Central objects: " + central.joined(separator: ", "))
+                    : "Central objects: waiting for camera frames")
+                    .font(.callout.bold())
                 HStack {
                     metric("FPS", String(format: "%.1f", engine.fps))
                     metric("Inference", String(format: "%.0f ms", engine.inferenceMS))
@@ -65,8 +68,6 @@ struct CameraScreen: View {
                 Text("Central 40% is an approximate image region, not a predicted walking path. Orange boxes overlap it. Detection does not establish whether an object is hazardous.").font(.caption).foregroundStyle(.secondary)
                 Text("Confidence: \(Int(engine.confidence * 100))%")
                 Slider(value: $engine.confidence, in: 0.1...0.9, step: 0.05).accessibilityLabel("Detection confidence")
-                Button("Test voice") { engine.testVoice() }.buttonStyle(.bordered)
-                Toggle("Speak object descriptions (preview)", isOn: $engine.detectionVoiceEnabled)
                 Text("Preview says, for example, ‘chair in front of the camera’. It describes supported objects in the candidate image region, not verified hazards or safe walking space. Speech starts after repeated observations and repeats at most every eight seconds.").font(.caption)
                 Toggle("Spoken hazard warnings (awaiting validated sensing)", isOn: $engine.speechEnabled)
                 Picker("Warning sensitivity", selection: $engine.sensitivity) {
@@ -76,11 +77,10 @@ struct CameraScreen: View {
                 Text("Candidate corridor is uncalibrated. Pose, walking and floor contact are unverified; live speech abstains until validated sensing is integrated. Surface hazards are unavailable.").font(.caption)
                 if engine.showHazardDebug {
                     Text("Cyan trapezoid: uncertain candidate corridor").font(.caption)
-                    Text(engine.alertStatus).accessibilityIdentifier("hazardStatus")
-                    ForEach(engine.hazardDecisions, id: \.detection.id) { decision in
-                        Text("\(decision.detection.label) \(Int(decision.detection.confidence * 100))%: \(decision.rationale)")
-                            .font(.caption)
-                    }
+                    TwoLineExplanation(text: engine.alertStatus).accessibilityIdentifier("hazardStatus")
+                    DecisionExplanationPanel(explanations: engine.hazardDecisions.map { decision in
+                        "\(decision.detection.label) \(Int(decision.detection.confidence * 100))%: \(decision.rationale)"
+                    })
                 }
                 Text("Frames stay on this iPhone. Nothing is recorded or uploaded.").font(.footnote)
                 Text("Experimental prototype. Not a mobility aid or collision-avoidance system. Do not use for road crossing or navigation, or replace a white cane, guide dog, or human assistance.")
@@ -96,7 +96,7 @@ struct CameraScreen: View {
         .onDisappear { engine.stop() }
     }
     private func metric(_ name: String, _ value: String) -> some View {
-        VStack(alignment: .leading) { Text(name).font(.caption); Text(value).font(.headline.monospacedDigit()) }
+        VStack(alignment: .leading) { Text(name).font(.caption).lineLimit(1); Text(value).font(.headline.monospacedDigit()).lineLimit(1).minimumScaleFactor(0.6) }
             .frame(maxWidth: .infinity, alignment: .leading)
     }
 }

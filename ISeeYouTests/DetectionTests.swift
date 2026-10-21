@@ -153,6 +153,18 @@ final class HazardLifecycleTests: XCTestCase {
         XCTAssertTrue(speech.alerts[0].message.contains("Voice is working"))
     }
 
+    func testVoiceTestSurvivesRepeatedSpeechOffCameraFrames() {
+        let speech = SpySpeech()
+        let controller = HazardAlertController(speech: speech)
+        controller.testVoice()
+        let initialCancellations = speech.cancellations
+        for tick in 0..<100 { controller.update([], at: Double(tick) / 30, enabled: false) }
+        XCTAssertEqual(speech.alerts.count, 1)
+        XCTAssertEqual(speech.cancellations, initialCancellations)
+        controller.reset()
+        XCTAssertEqual(speech.cancellations, initialCancellations + 1)
+    }
+
     func testAudioInterruptionCancelsPendingState() {
         let speech = SpySpeech()
         let controller = HazardAlertController(speech: speech)

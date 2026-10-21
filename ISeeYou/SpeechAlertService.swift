@@ -6,16 +6,49 @@ protocol SpeechAlerting: AnyObject {
 }
 
 // Used exclusively on the main thread. Never queues a backlog of stale guidance.
-final class SpeechAlertService: SpeechAlerting {
+final class SpeechAlertService: NSObject, SpeechAlerting, AVSpeechSynthesizerDelegate {
     private let synthesizer = AVSpeechSynthesizer()
+    var onStatus: ((String) -> Void)?
+    override init() {
+        super.init()
+        synthesizer.delegate = self
+    }
     func speak(_ alert: SpokenAlert) {
         if alert.level == .urgent { cancel() }
         guard !synthesizer.isSpeaking else { return }
-        let utterance = AVSpeechUtterance(string: alert.message)
-        utterance.voice = AVSpeechSynthesisVoice(language: "en")
-        synthesizer.speak(utterance)
+        do {
+            let audio = AVAudioSession.sharedInstance()
+            try audio.setCategory(.playback, mode: .spokenAudio, options: [.duckOthers])
+            try audio.setActive(true)
+            synthesizer.usesApplicationAudioSession = true
+            let utterance = AVSpeechUtterance(string: alert.message)
+            utterance.voice = AVSpeechSynthesisVoice(language: "en-GB") ?? AVSpeechSynthesisVoice(language: "en-US")
+            report("Voice requested · volume \(Int(audio.outputVolume * 100))% · " + audio.currentRoute.outputs.map(\.portName).joined(separator: ", "))
+            synthesizer.speak(utterance)
+        } catch { report("Voice could not start: " + error.localizedDescription) }
     }
-    func cancel() { synthesizer.stopSpeaking(at: .immediate) }
+    func cancel() {
+        synthesizer.stopSpeaking(at: .immediate)
+        try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+    }
+    private func report(_ text: String) {
+        #if DEBUG
+        print("[ISeeYou.Voice] " + text)
+        #endif
+        DispatchQueue.main.async { self.onStatus?(text) }
+    }
+    func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didStart utterance: AVSpeechUtterance) {
+        report("Voice speaking")
+    }
+    func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
+        if !synthesizer.isSpeaking {
+            try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+        }
+        report("Voice finished")
+    }
+    func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didCancel utterance: AVSpeechUtterance) {
+        report("Voice cancelled")
+    }
 }
 
 final class HazardAlertController {
@@ -23,9 +56,14 @@ final class HazardAlertController {
     private let speech: any SpeechAlerting
     private var interruptionObserver: NSObjectProtocol?
     private var interrupted = false
+    private var wasEnabled = false
+    var statusChanged: ((String) -> Void)?
     init(policy: any AlertPolicyApplying = AlertPolicy(), speech: any SpeechAlerting = SpeechAlertService()) {
         self.policy = policy
         self.speech = speech
+        if let service = speech as? SpeechAlertService {
+            service.onStatus = { [weak self] status in self?.statusChanged?(status) }
+        }
         interruptionObserver = NotificationCenter.default.addObserver(
             forName: AVAudioSession.interruptionNotification, object: nil, queue: .main
         ) { [weak self] notification in
@@ -39,7 +77,15 @@ final class HazardAlertController {
         if let interruptionObserver { NotificationCenter.default.removeObserver(interruptionObserver) }
     }
     func update(_ decisions: [HazardDecision], at time: TimeInterval, enabled: Bool) {
-        guard enabled, !interrupted else { reset(); return }
+        guard enabled, !interrupted else {
+            policy.reset()
+            // Cancel once when live speech is disabled, not on every camera
+            // frame. Explicit Test Voice must survive disabled live updates.
+            if wasEnabled { speech.cancel() }
+            wasEnabled = false
+            return
+        }
+        wasEnabled = true
         if let alert = policy.update(decisions, at: time) { speech.speak(alert) }
     }
     // Explicit detection-preview mode: describes image position, never hazard risk.
@@ -57,5 +103,5 @@ final class HazardAlertController {
         reset()
         speech.speak(SpokenAlert(level: .caution, message: "Voice is working. Object descriptions do not confirm hazards."))
     }
-    func reset() { policy.reset(); speech.cancel() }
+    func reset() { wasEnabled = false; policy.reset(); speech.cancel() }
 }

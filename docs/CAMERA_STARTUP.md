@@ -52,3 +52,11 @@ A metadata-only comparison confirmed the conflict here. While the remote screen 
 The user subsequently confirmed the app appeared to be working again on the physical phone. Keep Device Hub/iPhone Mirroring interactive screen control disconnected for real camera evaluation. Do not infer real scene quality from a running session or frame count alone. The operator did not visually inspect a live picture after disconnection; restoration was established through numeric diagnostics plus the user's observation.
 
 Debug builds include periodic sampled brightness logging to distinguish empty input from a preview-only issue. Ordinary launch and foreground return remain manual-start only. No distance accuracy or recognition-accuracy result is established by this incident.
+
+## Voice playback and stable explanations
+
+Disabled live-warning updates previously cancelled speech on every processed frame, including an explicit Test voice utterance. The controller now cancels on the transition from enabled to disabled, while explicit stop, background, interruption and mode changes still cancel immediately. Speech uses a playback/spoken-audio session, and visible status reports requests, speaking, completion or errors. The Test voice button and object-description switch are above the preview.
+
+Changing explanations reserve two lines and truncate longer text. The decision list has a fixed, Dynamic Type-scaled height and scrolls internally, so changes in text length or object count do not move the surrounding screen. Empty central-object and decision states retain their space.
+
+Verification on the paired physical iPhone: all 22 unit tests passed, including 100 disabled-frame updates preserving Test voice, explicit cancellation, and SwiftUI layout measurements for short/long explanations at standard and accessibility sizes and empty/full decision panels. The UnitChecks scheme runs this suite without requiring the separately provisioned UI-test runner. The updated app was installed; Test voice showed speaking status, device logs selected Speaker at 55% volume, and the user confirmed audible voice. This does not establish recognition or distance accuracy. Device Hub was quit after UI inspection to release camera access.

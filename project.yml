@@ -60,3 +60,9 @@ schemes:
         ISeeYou: all
     test:
       targets: [ISeeYouTests, ISeeYouUITests]
+  UnitChecks:
+    build:
+      targets:
+        ISeeYou: all
+    test:
+      targets: [ISeeYouTests]
