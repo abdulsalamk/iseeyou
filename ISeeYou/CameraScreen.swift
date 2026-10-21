@@ -19,9 +19,7 @@ struct CameraScreen: View {
                     }
                 }
                 Button("Test voice") { engine.testVoice() }.buttonStyle(.bordered).accessibilityIdentifier("testVoice")
-                Toggle("Speak object descriptions (preview)", isOn: $engine.detectionVoiceEnabled)
-                Toggle("Speak approximate distances (experimental)", isOn: $engine.distanceSpeechEnabled)
-                    .disabled(!calibration.profile.passed)
+                Toggle("Speak estimated distances (experimental)", isOn: $engine.detectionVoiceEnabled)
                 TwoLineExplanation(text: engine.voiceStatus).font(.caption).accessibilityIdentifier("voiceStatus")
                 TwoLineExplanation(text: engine.status).font(.callout).accessibilityIdentifier("cameraStatus")
                 Text("Received video frames: \(engine.receivedFrames)").font(.caption.monospacedDigit()).accessibilityIdentifier("cameraFrames")
@@ -79,7 +77,7 @@ struct CameraScreen: View {
                 Text("Minimum detection confidence: \(Int(engine.confidence * 100))%")
                 Slider(value: $engine.confidence, in: 0.1...0.9, step: 0.05).accessibilityLabel("Detection confidence")
                 Text("Below 50% confidence, retained detections are named unknown object on screen and in speech. Detections below the minimum above are hidden.").font(.caption)
-                Text("Preview says, for example, ‘chair in front of the camera’. It describes supported objects in the candidate image region, not verified hazards or safe walking space. Speech starts after repeated observations and repeats at most every eight seconds.").font(.caption)
+                Text("Speech uses the displayed estimate, for example, ‘chair, approximately 1.5 metres’. Estimates are unverified until physically checked. Missing or stale distances are not spoken. Repeated observations are required; speech repeats at most every eight seconds.").font(.caption)
                 Toggle("Spoken hazard warnings (awaiting validated sensing)", isOn: $engine.speechEnabled)
                 Picker("Warning sensitivity", selection: $engine.sensitivity) {
                     ForEach(WarningSensitivity.allCases, id: \.self) { Text($0.rawValue.capitalized).tag($0) }

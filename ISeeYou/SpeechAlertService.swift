@@ -93,13 +93,10 @@ final class HazardAlertController {
         let decisions = detections.filter { $0.confidence >= minimumConfidence && CandidateCorridor.intersectsFoot($0.bounds) }
             .map { $0.conservativelyNamed() }
             .compactMap { detection -> HazardDecision? in
-                let message: String
-                if let distanceScale {
-                    guard let reading = detection.distance else { return nil }
-                    let metres = reading.metres * distanceScale
-                    guard metres.isFinite, (0.15...5).contains(metres) else { return nil }
-                    message = "\(detection.label) in front of you, about " + String(format: "%.1f", metres) + " metres" + (metres < 0.5 ? ", very close" : "")
-                } else { message = "\(detection.label) in front of the camera" }
+                guard let reading = detection.distance else { return nil }
+                let metres = reading.metres * (distanceScale ?? 1)
+                guard metres.isFinite, (0.15...5).contains(metres) else { return nil }
+                let message = "\(detection.label), approximately " + String(format: "%.1f", metres) + " metres" + (metres < 0.5 ? ", very close" : "")
                 return HazardDecision(detection: detection, level: .caution,
                     rationale: "Object description only; risk unverified",
                     message: message)

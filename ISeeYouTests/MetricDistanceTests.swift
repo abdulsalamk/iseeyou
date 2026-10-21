@@ -28,7 +28,7 @@ final class MetricDistanceTests: XCTestCase {
         profile.trials.removeLast()
         XCTAssertFalse(profile.passed)
     }
-    func testNearRangeFailureKeepsSpeechLocked() {
+    func testNearRangeFailureKeepsProfileUnvalidated() {
         var profile = CalibrationProfile(trials: [0.5, 1, 2].map { trial($0, raw: $0, validation: false) })
         for target in CalibrationProfile.targets {
             for _ in 0..<3 { profile.trials.append(trial(target, raw: target == 0.5 ? 0.7 : target, validation: true)) }
@@ -48,7 +48,7 @@ final class MetricDistanceTests: XCTestCase {
         XCTAssertTrue(speech.spoken.isEmpty)
         item.distance = ObjectDistance(metres: 1.5, spread: 0.1, coverage: 1)
         for tick in 6...11 { controller.preview([item], at: Double(tick)*0.2, distanceScale: 1) }
-        XCTAssertEqual(speech.spoken.first?.message, "chair in front of you, about 1.5 metres")
+        XCTAssertEqual(speech.spoken.first?.message, "chair, approximately 1.5 metres")
     }
     func testBundledDepthModelRunsOnPhysicalDevice() throws {
         let estimator = try MetricDepthEstimator()

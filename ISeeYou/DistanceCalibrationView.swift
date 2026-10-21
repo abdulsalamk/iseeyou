@@ -34,7 +34,7 @@ struct DistanceCalibrationView: View {
                     latencyMS: frameAgeMS + Date().timeIntervalSince(frameDate) * 1000, validation: validation)
             }.disabled(selected == nil || candidates.filter { $0.label == label }.count != 1)
             TwoLineExplanation(text: calibration.status).font(.caption)
-            Text(calibration.profile.passed ? "Bench checks passed for this profile. Experimental distance speech can be enabled." : "Numerical speech locked: physical checks incomplete or failed.")
+            Text(calibration.profile.passed ? "Bench checks passed for this profile; estimates remain experimental." : "Distance accuracy unverified: physical checks incomplete or failed.")
                 .font(.caption.bold())
             Text("Samples: \(calibration.profile.trials.count)").font(.caption)
             ForEach(CalibrationProfile.targets, id: \.self) { target in
@@ -44,7 +44,7 @@ struct DistanceCalibrationView: View {
             }
             ShareLink("Export calibration CSV", item: calibration.csv)
             Button("Reset calibration", role: .destructive) { confirmingReset = true }
-                .confirmationDialog("Clear calibration and lock numerical speech?", isPresented: $confirmingReset) {
+                .confirmationDialog("Clear calibration and return to raw distance estimates?", isPresented: $confirmingReset) {
                     Button("Clear calibration", role: .destructive) { calibration.reset() }
                 }
         }

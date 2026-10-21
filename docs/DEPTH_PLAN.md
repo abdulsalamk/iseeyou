@@ -1,5 +1,7 @@
 # Milestone 3: metric-depth preparation
 
+**Current behaviour:** the user subsequently requested experimental spoken estimates before physical calibration. The original plan below describes the earlier gate. The implemented behaviour is documented at the end of this file. Estimates remain unverified; no physical accuracy result has been established.
+
 ## Candidate and licensing gate
 
 Investigate **Depth Anything V2 Small Metric**, selecting the indoor Hypersim checkpoint for indoor experiments and outdoor Virtual KITTI checkpoint for outdoor experiments. These are separately fine-tuned metric models. The ordinary relative-depth checkpoint must never be labelled in metres.
@@ -68,7 +70,7 @@ Expand **Measure and validate distances**. Select one isolated object type in vi
 
 The preliminary bench acceptance limit is 10 cm or 15% of measured distance, whichever is larger, for all three most recent held-out readings at every range. This is an explicitly chosen research gate, not a clinically validated mobility standard. Profile and samples persist locally as JSON; CSV export includes timestamps, actual/raw/corrected distances, errors, model identity and latency. No images are recorded or uploaded. Calibration samples freeze once validation begins; reset is required to refit, and resetting immediately locks numerical speech again.
 
-**Speak approximate distances (experimental)** is disabled until that gate passes and remains off unless explicitly enabled. It says, for example, “chair in front of you, about 1.5 metres”; below 0.5 m it adds “very close”. Missing/invalid/stale readings abstain; no distance is inferred from object-box size. Phone direction is still only an image-region proxy, not verified body direction or walking path. Existing stop/background/interruption cancellation applies. Beeps are deferred at the user's request. Distances below 0.15 m and beyond 5 m are outside this experimental speech range and are not announced.
+**Speak estimated distances (experimental)** is off by default and may be explicitly enabled before physical calibration, as subsequently requested by the user. It uses the same raw estimate or fitted correction scale as the on-screen label. The utterance is, for example, “chair, approximately 1.5 metres”; below 0.5 m it adds “very close”. This replaces the earlier calibration lock, not the actual calibration/validation tools. Calibration results describe bench accuracy only, and UI states remain unverified until those checks pass. Reset returns to raw estimates and cancels current speech if the correction scale changes. Missing/invalid/stale depth abstains, with no name-only fallback and no invented number. Below-50% names use “unknown object”. No distance is inferred from object-box size. Phone direction remains an image-region proxy; neither body direction nor walking path is verified. Stop/background/interruption cancellation still applies. Beeps remain deferred. Distances below 0.15 m and beyond 5 m are not announced.
 
 No physical distance-accuracy, sustained thermal/energy, standard iPhone 16 performance or navigation-safety result is claimed yet. This prototype must be checked with a sighted tester and a physical tape measure while stationary before evaluating audio.
 

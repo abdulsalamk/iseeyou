@@ -67,7 +67,7 @@ final class DistanceCalibration: ObservableObject {
         var updated = profile; updated.trials.append(trial)
         save(updated, success: String(format: "Saved %@: %.2f m raw; error %.2f m", item.label, distance.metres, trial.error))
     }
-    func reset() { save(CalibrationProfile(), success: "Calibration cleared; numerical speech disabled.") }
+    func reset() { save(CalibrationProfile(), success: "Calibration cleared; using unverified raw estimates.") }
     private func save(_ updated: CalibrationProfile, success: String) {
         do {
             try JSONEncoder().encode(updated).write(to: url, options: .atomic)

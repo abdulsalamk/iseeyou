@@ -138,10 +138,11 @@ final class HazardLifecycleTests: XCTestCase {
         let controller = HazardAlertController(speech: speech)
         for tick in 0...8 {
             controller.preview([Detection(label: "chair", confidence: 0.9,
-                bounds: CGRect(x: 0.4, y: 0.05, width: 0.2, height: 0.5))], at: Double(tick) * 0.1)
+                bounds: CGRect(x: 0.4, y: 0.05, width: 0.2, height: 0.5),
+                distance: ObjectDistance(metres: 1.5, spread: 0.1, coverage: 1))], at: Double(tick) * 0.1)
         }
         XCTAssertEqual(speech.alerts.count, 1)
-        XCTAssertEqual(speech.alerts.first?.message, "chair in front of the camera")
+        XCTAssertEqual(speech.alerts.first?.message, "chair, approximately 1.5 metres")
         controller.reset()
         XCTAssertEqual(speech.cancellations, 1)
     }

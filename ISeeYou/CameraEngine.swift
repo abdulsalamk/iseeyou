@@ -22,13 +22,13 @@ final class CameraEngine: NSObject, ObservableObject, AVCaptureVideoDataOutputSa
     @Published var confidence: Double = 0.4
     @Published var speechEnabled = false {
         didSet {
-            if speechEnabled { detectionVoiceEnabled = false; distanceSpeechEnabled = false }
+            if speechEnabled { detectionVoiceEnabled = false }
             alerts.reset()
         }
     }
     @Published var detectionVoiceEnabled = false {
         didSet {
-            if detectionVoiceEnabled { speechEnabled = false; distanceSpeechEnabled = false }
+            if detectionVoiceEnabled { speechEnabled = false }
             alerts.reset()
         }
     }
@@ -53,16 +53,10 @@ final class CameraEngine: NSObject, ObservableObject, AVCaptureVideoDataOutputSa
     private var observers: [NSObjectProtocol] = []
     @Published private(set) var distanceStatus = "Distance: awaiting camera"
     @Published private(set) var lastDistanceFrame = Date.distantPast
-    @Published var distanceSpeechEnabled = false {
-        didSet {
-            if distanceSpeechEnabled { detectionVoiceEnabled = false; speechEnabled = false }
-            alerts.reset()
-        }
-    }
     private var calibrationProfile = CalibrationProfile()
     func setCalibration(_ profile: CalibrationProfile) {
+        if calibrationProfile.scale != profile.scale { alerts.reset() }
         calibrationProfile = profile
-        if !profile.passed && distanceSpeechEnabled { distanceSpeechEnabled = false }
     }
     private var depthEstimator: MetricDepthEstimator?
     private var request: VNCoreMLRequest?
@@ -356,12 +350,9 @@ final class CameraEngine: NSObject, ObservableObject, AVCaptureVideoDataOutputSa
                 // Explicit unknown evidence makes this baseline abstain from speech.
                 self.hazardDecisions = self.assessor.assess(results, context: HazardContext(), sensitivity: self.sensitivity)
                 let stale = age > 500 || CACurrentMediaTime() - end > 0.5
-                if self.distanceSpeechEnabled && self.calibrationProfile.passed {
+                if self.detectionVoiceEnabled {
                     self.alerts.preview(stale ? [] : results, at: CACurrentMediaTime(), distanceScale: self.calibrationProfile.scale, minimumConfidence: Float(self.confidence))
-                    self.alertStatus = stale ? "Suppressed: stale frame" : "Experimental distance descriptions; risk unverified"
-                } else if self.detectionVoiceEnabled {
-                    self.alerts.preview(stale ? [] : results, at: CACurrentMediaTime(), minimumConfidence: Float(self.confidence))
-                    self.alertStatus = stale ? "Suppressed: stale frame" : "Object voice preview active; hazard risk unverified"
+                    self.alertStatus = stale ? "Suppressed: stale frame" : "Experimental spoken distance estimates; accuracy unverified"
                 } else {
                     self.alerts.update(stale ? [] : self.hazardDecisions, at: CACurrentMediaTime(), enabled: self.speechEnabled)
                     self.alertStatus = stale ? "Suppressed: stale frame" : (self.speechEnabled ? "Suppressed: geometry unverified" : "Speech off")
