@@ -1,0 +1,6 @@
+# Python 3.11, macOS arm64
+torch==2.7.0
+torchvision==0.22.0
+coremltools==9.0
+numpy==1.26.4
+opencv-python-headless==4.11.0.86

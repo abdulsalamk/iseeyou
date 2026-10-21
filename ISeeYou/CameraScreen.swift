@@ -3,6 +3,7 @@ import AVFoundation
 
 struct CameraScreen: View {
     @StateObject private var engine = CameraEngine()
+    @StateObject private var calibration = DistanceCalibration()
     @Environment(\.scenePhase) private var scenePhase
     var body: some View {
         ScrollView {
@@ -19,6 +20,8 @@ struct CameraScreen: View {
                 }
                 Button("Test voice") { engine.testVoice() }.buttonStyle(.bordered).accessibilityIdentifier("testVoice")
                 Toggle("Speak object descriptions (preview)", isOn: $engine.detectionVoiceEnabled)
+                Toggle("Speak approximate distances (experimental)", isOn: $engine.distanceSpeechEnabled)
+                    .disabled(!calibration.profile.passed)
                 TwoLineExplanation(text: engine.voiceStatus).font(.caption).accessibilityIdentifier("voiceStatus")
                 TwoLineExplanation(text: engine.status).font(.callout).accessibilityIdentifier("cameraStatus")
                 Text("Received video frames: \(engine.receivedFrames)").font(.caption.monospacedDigit()).accessibilityIdentifier("cameraFrames")
@@ -44,7 +47,9 @@ struct CameraScreen: View {
                             Rectangle().stroke(detection.inPath ? .orange : .green, lineWidth: 2)
                                 .frame(width: rect.width, height: rect.height)
                                 .overlay(alignment: .topLeading) {
-                                    Text("\(detection.label) \(Int(detection.confidence * 100))%")
+                                    Text("\(detection.label) · confidence \(Int(detection.confidence * 100))%" + (detection.distance.map {
+                                        String(format: "\n~%.1f m (unverified)", $0.metres * (calibration.profile.scale ?? 1))
+                                    } ?? "\nDistance unavailable"))
                                         .font(.caption2.bold()).padding(3).background(.black.opacity(0.8)).foregroundStyle(.white)
                                 }
                                 .position(x: rect.midX, y: rect.midY)
@@ -64,7 +69,12 @@ struct CameraScreen: View {
                     metric("Inference", String(format: "%.0f ms", engine.inferenceMS))
                     metric("Frame age", String(format: "%.0f ms", engine.frameAgeMS))
                 }
-                Text("Thermal: \(engine.thermal) • Distance: unavailable / uncalibrated").font(.caption)
+                Text("Thermal: \(engine.thermal)").font(.caption)
+                TwoLineExplanation(text: engine.distanceStatus).font(.caption)
+                DisclosureGroup("Measure and validate distances") {
+                    DistanceCalibrationView(calibration: calibration, detections: engine.detections,
+                        frameAgeMS: engine.frameAgeMS, frameDate: engine.lastDistanceFrame)
+                }
                 Text("Central 40% is an approximate image region, not a predicted walking path. Orange boxes overlap it. Detection does not establish whether an object is hazardous.").font(.caption).foregroundStyle(.secondary)
                 Text("Confidence: \(Int(engine.confidence * 100))%")
                 Slider(value: $engine.confidence, in: 0.1...0.9, step: 0.05).accessibilityLabel("Detection confidence")
@@ -87,6 +97,7 @@ struct CameraScreen: View {
                     .font(.footnote).foregroundStyle(.secondary)
             }.padding()
         }
+        .onReceive(calibration.$profile) { engine.setCalibration($0) }
         .onChange(of: scenePhase) { _, phase in
             #if DEBUG
             print("[ISeeYou.Camera] scenePhase=\(phase)")

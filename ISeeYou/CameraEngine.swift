@@ -22,13 +22,13 @@ final class CameraEngine: NSObject, ObservableObject, AVCaptureVideoDataOutputSa
     @Published var confidence: Double = 0.4
     @Published var speechEnabled = false {
         didSet {
-            if speechEnabled { detectionVoiceEnabled = false }
+            if speechEnabled { detectionVoiceEnabled = false; distanceSpeechEnabled = false }
             alerts.reset()
         }
     }
     @Published var detectionVoiceEnabled = false {
         didSet {
-            if detectionVoiceEnabled { speechEnabled = false }
+            if detectionVoiceEnabled { speechEnabled = false; distanceSpeechEnabled = false }
             alerts.reset()
         }
     }
@@ -51,6 +51,20 @@ final class CameraEngine: NSObject, ObservableObject, AVCaptureVideoDataOutputSa
     private var permissionPending = false // main-thread only
     private var appActive = true // main-thread only
     private var observers: [NSObjectProtocol] = []
+    @Published private(set) var distanceStatus = "Distance: awaiting camera"
+    @Published private(set) var lastDistanceFrame = Date.distantPast
+    @Published var distanceSpeechEnabled = false {
+        didSet {
+            if distanceSpeechEnabled { detectionVoiceEnabled = false; speechEnabled = false }
+            alerts.reset()
+        }
+    }
+    private var calibrationProfile = CalibrationProfile()
+    func setCalibration(_ profile: CalibrationProfile) {
+        calibrationProfile = profile
+        if !profile.passed && distanceSpeechEnabled { distanceSpeechEnabled = false }
+    }
+    private var depthEstimator: MetricDepthEstimator?
     private var request: VNCoreMLRequest?
     private var configured = false
     private var wantsRunning = false // main-thread only
@@ -162,6 +176,19 @@ final class CameraEngine: NSObject, ObservableObject, AVCaptureVideoDataOutputSa
                         if request == nil { try loadModel() }
                         modelStatus = request == nil ? "Camera active · preview only (model missing)" : "Camera active · object detection ready"
                     } catch { modelStatus = "Camera active · preview only: detector failed to load: " + error.localizedDescription }
+                    do {
+                        if depthEstimator == nil { depthEstimator = try MetricDepthEstimator() }
+                        DispatchQueue.main.async {
+                            guard self.generation == lease else { return }
+                            self.distanceStatus = "Indoor distance estimates · unverified"
+                        }
+                    } catch {
+                        let message = "Distance unavailable: " + error.localizedDescription
+                        DispatchQueue.main.async {
+                            guard self.generation == lease else { return }
+                            self.distanceStatus = message
+                        }
+                    }
                     cameraLog(modelStatus)
                     DispatchQueue.main.async {
                         guard self.wantsRunning, self.generation == lease else { return }
@@ -224,6 +251,8 @@ final class CameraEngine: NSObject, ObservableObject, AVCaptureVideoDataOutputSa
         generation = UUID()
         running = false
         detections = []
+        lastDistanceFrame = .distantPast
+        distanceStatus = "Distance: camera stopped"
         hazardDecisions = []
         alertStatus = "Stopped; pending speech cancelled"
         alerts.reset()
@@ -289,11 +318,23 @@ final class CameraEngine: NSObject, ObservableObject, AVCaptureVideoDataOutputSa
                 }
                 return
             }
-            let results = observations.compactMap { observation -> Detection? in
+            var results = observations.compactMap { observation -> Detection? in
                 guard let label = observation.labels.first else { return nil }
                 return Detection(label: label.identifier, confidence: label.confidence, bounds: observation.boundingBox)
             }
+            var depthError: String?
+            if let depthEstimator {
+                do { results = try depthEstimator.estimate(buffer, detections: results) }
+                catch { depthError = error.localizedDescription }
+            }
+            let depthAvailable = depthEstimator != nil
             let end = CACurrentMediaTime()
+            #if DEBUG
+            if imageLogCount % 30 == 0 {
+                let readings = results.compactMap { item in item.distance.map { String(format: "%@ raw %.2f m", item.label, $0.metres) } }
+                cameraLog("Depth inference total \((end-start)*1000) ms; " + readings.prefix(4).joined(separator: "; "))
+            }
+            #endif
             let timestamp = CMSampleBufferGetPresentationTimeStamp(sampleBuffer).seconds
             let age = max(0, CMClockGetTime(CMClockGetHostTimeClock()).seconds - timestamp) * 1000
             frameCount += 1
@@ -314,12 +355,23 @@ final class CameraEngine: NSObject, ObservableObject, AVCaptureVideoDataOutputSa
                 // Explicit unknown evidence makes this baseline abstain from speech.
                 self.hazardDecisions = self.assessor.assess(results, context: HazardContext(), sensitivity: self.sensitivity)
                 let stale = age > 500 || CACurrentMediaTime() - end > 0.5
-                if self.detectionVoiceEnabled {
+                if self.distanceSpeechEnabled && self.calibrationProfile.passed {
+                    self.alerts.preview(stale ? [] : results, at: CACurrentMediaTime(), distanceScale: self.calibrationProfile.scale)
+                    self.alertStatus = stale ? "Suppressed: stale frame" : "Experimental distance descriptions; risk unverified"
+                } else if self.detectionVoiceEnabled {
                     self.alerts.preview(stale ? [] : results, at: CACurrentMediaTime())
                     self.alertStatus = stale ? "Suppressed: stale frame" : "Object voice preview active; hazard risk unverified"
                 } else {
                     self.alerts.update(stale ? [] : self.hazardDecisions, at: CACurrentMediaTime(), enabled: self.speechEnabled)
                     self.alertStatus = stale ? "Suppressed: stale frame" : (self.speechEnabled ? "Suppressed: geometry unverified" : "Speech off")
+                }
+                if stale {
+                    results = results.map { item in var copy = item; copy.distance = nil; return copy }
+                }
+                self.lastDistanceFrame = Date()
+                if let depthError { self.distanceStatus = "Distance unavailable: " + depthError }
+                else if depthAvailable {
+                    self.distanceStatus = stale ? "Distance unavailable: stale frame" : "Indoor distance estimates · " + (self.calibrationProfile.passed ? "bench checks passed" : "unverified / needs calibration")
                 }
                 self.detections = results.filter { $0.confidence >= Float(self.confidence) }
                 self.inferenceMS = (end - start) * 1000

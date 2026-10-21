@@ -34,3 +34,40 @@ Upstream distinguishes Small and larger-model licensing. Check the exact metric 
 Record timestamp, class, actual metres (1/2/3/5), raw predicted metres, absolute error, model/OS versions, inference and capture-to-alert latency, lighting, scene and validity. Collect repeated trials across people, other classes, clothes, orientations, occlusion and indoor/outdoor light. Separate calibration from held-out validation and agree an accuracy criterion before enabling numerical speech. The standard iPhone 16 has no LiDAR reference; measure distances physically.
 
 Measure 10+ processed FPS target, less-than-one-second alert target, memory, thermal state, battery level/energy and sustained-run throttling on the phone. These are targets, not results. Do not use this POC for navigation or real hazard avoidance. Meta glasses remain a separate later investigation.
+
+## Implemented indoor prototype (physical calibration still required)
+
+The app now runs **Depth Anything V2 Metric Hypersim Small** on the same portrait frame as YOLO11n. This is a second, depth-specific model; YOLO supplies object boxes and the metric model supplies estimated surface depth. It requires no LiDAR, preserving the standard iPhone 16 target. Neither model determines safe walking space.
+
+Provenance:
+
+- Official source commit: `a561b849ebae10a6f5ef49e26c83cbbcd36c71bf`.
+- Official checkpoint: `depth_anything_v2_metric_hypersim_vits.pth`, stored as `models/metric_hypersim_small.pth`.
+- Checkpoint SHA-256: `b782898d8a3e8be1f639de33837ed85e9b4b73e40f8f5e5cd99067588d722545`.
+- Converted weights SHA-256: `312b4d1722145abdbf45b69f3c4439abd421d6107b475e3264facb75a72a3cad`.
+- Exact checkpoint model card declares Apache-2.0; upstream Small uses Apache-2.0. License is preserved in `models/licenses/DepthAnythingV2-Apache-2.0.txt`. Hypersim is synthetic indoor training data; this is not an outdoor model or a validation of real scenes.
+- Locked export packages: `models/requirements-depth-lock.txt`; minimal pins: `scripts/requirements-depth.txt`.
+
+Export using Python 3.11 and the pinned source checkout:
+
+```sh
+python scripts/export_metric_depth.py --source /path/to/Depth-Anything-V2 \
+  --checkpoint models/metric_hypersim_small.pth \
+  --output ISeeYou/Models/MetricDepthSmall.mlpackage
+```
+
+The fixed portrait input is 294x518 RGB. This deliberately reduces resolution from upstream's default short-side 518 for mobile evaluation and introduces about 0.9% aspect stretching for a 720x1280 frame. It is an experimental preprocessing choice requiring physical calibration, not an exact reproduction of upstream default image resizing. RGB scaling is applied once by Core ML; ImageNet mean/std normalization is inside the network. Fixed positional embeddings are precomputed using upstream bicubic interpolation for this exact input, avoiding an unsupported runtime bicubic conversion operator. Output is `[1,518,294]` floating-point metric predictions, not a colourised depth image.
+
+FP16 Core ML was compared with the original PyTorch positional-interpolation path on three deterministic random images and three upstream example photographs. All outputs were finite and shape-correct. Median absolute conversion differences ranged from 0.0045 to 0.0474 m; the largest pixel difference was 0.2328 m. Full results are in `models/metric-depth-parity.json`. These are **conversion differences**, not physical distance errors. No actual distance ground truth exists for these inputs. Source photographs are not copied into this repo.
+
+`MetricDepthEstimator` maps an inset object ROI into the same frame's depth, using Vision's bottom-left coordinates correctly. It uses median depth, rejects less than 80% valid coverage, tiny boxes, nonfinite/out-of-range samples and excessive interquartile spread. These heuristics cannot remove all background leakage, transparent/reflective-surface failures, or class-specific errors. Estimates may be absent. Stale frames (over 500 ms) are never used for distance speech or calibration; stopped frames are also rejected. Depth/inference failure leaves camera preview available.
+
+### Physical calibration workflow
+
+Expand **Measure and validate distances**. Select one isolated object type in view with at least 80% detection confidence. Measure from the phone's rear camera to the visible object surface. Record calibration samples at 0.5, 1 and 2 m; a median multiplicative scale is fitted to those samples only. Scale outside 0.5–2 is rejected. Then freeze calibration by enabling **Held-out validation sample** and collect three separately positioned readings at **each** of 0.5, 1, 1.5, 2, 3 and 5 m. Use varied objects and lighting. Minimum two seconds between records prevents accidental duplicate taps; it does not independently prove the scene changed.
+
+The preliminary bench acceptance limit is 10 cm or 15% of measured distance, whichever is larger, for all three most recent held-out readings at every range. This is an explicitly chosen research gate, not a clinically validated mobility standard. Profile and samples persist locally as JSON; CSV export includes timestamps, actual/raw/corrected distances, errors, model identity and latency. No images are recorded or uploaded. Calibration samples freeze once validation begins; reset is required to refit, and resetting immediately locks numerical speech again.
+
+**Speak approximate distances (experimental)** is disabled until that gate passes and remains off unless explicitly enabled. It says, for example, “chair in front of you, about 1.5 metres”; below 0.5 m it adds “very close”. Missing/invalid/stale readings abstain; no distance is inferred from object-box size. Phone direction is still only an image-region proxy, not verified body direction or walking path. Existing stop/background/interruption cancellation applies. Beeps are deferred at the user's request. Distances below 0.15 m and beyond 5 m are outside this experimental speech range and are not announced.
+
+No physical distance-accuracy, sustained thermal/energy, standard iPhone 16 performance or navigation-safety result is claimed yet. This prototype must be checked with a sighted tester and a physical tape measure while stationary before evaluating audio.

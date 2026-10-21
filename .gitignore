@@ -234,3 +234,6 @@ __pycache__/
 !ISeeYou/Models/yolo11n.mlpackage/
 !ISeeYou/Models/yolo11n.mlpackage/**
 !models/yolo11n.pt
+
+!ISeeYou/Models/MetricDepthSmall.mlpackage/
+!ISeeYou/Models/MetricDepthSmall.mlpackage/**

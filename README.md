@@ -34,7 +34,7 @@ The script downloads official `yolo11n.pt`, exports a 640x640 FP16 Core ML packa
 - Serial background camera/inference queue, discarded late frames and one request per frame prevent an accumulating inference backlog. UI updates happen on the main thread.
 - Confidence slider filters displayed results. Model NMS may impose an additional minimum confidence floor.
 - Shows processed FPS, Vision inference duration, capture-to-result frame age and thermal state. Frame age excludes UI render time and is **not alert latency**. Performance targets remain unverified until measured on a physical iPhone 16.
-- No numerical distance, calibration or depth inference is shipped. The limited hazard prototype adds a native speech service, disabled by default; live alerts abstain because validated pose, motion and ground contact are unavailable. Distance explicitly remains unavailable/uncalibrated. See [milestone 3 preparation](docs/DEPTH_PLAN.md).
+- Indoor metric-depth estimates and a physical calibration/held-out validation screen are included. Estimates are explicitly unverified; numerical speech stays locked until the bench checks pass and is off by default. No physical distance accuracy or safe-navigation result is claimed. See [depth implementation and calibration](docs/DEPTH_PLAN.md).
 - No microphone, photo library, networking or cloud services are used.
 
 ## Validation
@@ -74,3 +74,7 @@ The control now shows **Cancel camera startup** while starting, then **Stop came
 See [camera startup findings and verification limits](docs/CAMERA_STARTUP.md). Physical-device UI tests require their own test-runner provisioning profile, in addition to the app's signing profile.
 
 **Physical camera testing:** disconnect Device Hub interactive screen control before checking the real camera. Apple's [Device Hub documentation](https://developer.apple.com/documentation/xcode/interacting-with-your-app-in-device-hub) explains that apps may receive empty video while remote interaction is active. Here, disconnecting restored nonempty input and the user confirmed the app worked again. Frame counts alone do not prove that real images are arriving.
+
+### Experimental indoor distances
+
+A second Core ML model, Depth Anything V2 Metric Hypersim Small, predicts indoor surface depth. Object labels distinguish confidence percentages from approximate metres. Expand **Measure and validate distances** to record physically measured samples and export the results. Numerical speech requires held-out checks; it never substitutes invented distance numbers for absent readings. Under half a metre adds “very close” once the profile passes. Beeps are deferred. See the [full workflow, provenance and limits](docs/DEPTH_PLAN.md#implemented-indoor-prototype-physical-calibration-still-required).

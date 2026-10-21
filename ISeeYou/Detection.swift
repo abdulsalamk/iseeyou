@@ -7,6 +7,7 @@ struct Detection: Identifiable {
     let confidence: Float
     // Vision coordinates: normalized, bottom-left origin, portrait image.
     let bounds: CGRect
+    var distance: ObjectDistance? = nil
     var inPath: Bool { bounds.maxX > 0.3 && bounds.minX < 0.7 }
 }
 

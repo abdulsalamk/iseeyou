@@ -18,6 +18,10 @@
 		A05C871FD973BC3BF194D5EB /* StableExplanations.swift in Sources */ = {isa = PBXBuildFile; fileRef = C37037D7BDFF5E098A5316E5 /* StableExplanations.swift */; };
 		AE312A7033320F1DE7B69A92 /* CameraStartupUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5861F32A9B8B6F58AE468FE4 /* CameraStartupUITests.swift */; };
 		B1465570EC3A04CC6380A731 /* HazardAssessment.swift in Sources */ = {isa = PBXBuildFile; fileRef = DDE3EA24702F375E2633F80D /* HazardAssessment.swift */; };
+		C2BD3A884A35258AC18F365C /* MetricDepthEstimator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1640F8AD5DBE70556ACE3D93 /* MetricDepthEstimator.swift */; };
+		C62C5F845574042624FD4BF6 /* DistanceCalibration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18C1253FFE89CD39E57072C5 /* DistanceCalibration.swift */; };
+		C9183839BFD0F40049D8A72F /* DistanceCalibrationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C7508DF1D254AAC2148091E /* DistanceCalibrationView.swift */; };
+		D5831BB9B1B4A85C7189D9D5 /* MetricDistanceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E09B69867C34B9F596F13E0E /* MetricDistanceTests.swift */; };
 		E6527DFD40084760C5EDFEAA /* AlertPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F28077046EAC0EFA7F2F583 /* AlertPolicy.swift */; };
 		ECBBCEF7FC2F9F4EBB4ABD3A /* CameraLifecyclePolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B855B6D35A156BAD5D646BF /* CameraLifecyclePolicy.swift */; };
 /* End PBXBuildFile section */
@@ -42,7 +46,10 @@
 /* Begin PBXFileReference section */
 		07CF1EB566389D83D9C95A5F /* ISeeYouTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = ISeeYouTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		07F933631D2672B8D64023DD /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		1640F8AD5DBE70556ACE3D93 /* MetricDepthEstimator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetricDepthEstimator.swift; sourceTree = "<group>"; };
+		18C1253FFE89CD39E57072C5 /* DistanceCalibration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DistanceCalibration.swift; sourceTree = "<group>"; };
 		24B20B9A4C1677D141AC6D05 /* SpeechAlertService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeechAlertService.swift; sourceTree = "<group>"; };
+		2C7508DF1D254AAC2148091E /* DistanceCalibrationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DistanceCalibrationView.swift; sourceTree = "<group>"; };
 		32001EDD2F139DA2770009E6 /* ISeeYouApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ISeeYouApp.swift; sourceTree = "<group>"; };
 		3BD40B7849A3797D5F19112B /* CameraScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraScreen.swift; sourceTree = "<group>"; };
 		424945874503F6B65D68CE61 /* CameraLifecycleTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraLifecycleTests.swift; sourceTree = "<group>"; };
@@ -56,6 +63,7 @@
 		D7196EEBA195DAE7C56F2B1B /* DetectionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DetectionTests.swift; sourceTree = "<group>"; };
 		DD308043EA899FBA5CD7843B /* ISeeYou.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = ISeeYou.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		DDE3EA24702F375E2633F80D /* HazardAssessment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HazardAssessment.swift; sourceTree = "<group>"; };
+		E09B69867C34B9F596F13E0E /* MetricDistanceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetricDistanceTests.swift; sourceTree = "<group>"; };
 		E2200A3F9C08AD1B85886AB6 /* ISeeYouUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = ISeeYouUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -65,6 +73,7 @@
 			children = (
 				424945874503F6B65D68CE61 /* CameraLifecycleTests.swift */,
 				D7196EEBA195DAE7C56F2B1B /* DetectionTests.swift */,
+				E09B69867C34B9F596F13E0E /* MetricDistanceTests.swift */,
 				58E33C8F482B8B7DAEE6295D /* StableExplanationTests.swift */,
 			);
 			path = ISeeYouTests;
@@ -106,9 +115,12 @@
 				9B855B6D35A156BAD5D646BF /* CameraLifecyclePolicy.swift */,
 				3BD40B7849A3797D5F19112B /* CameraScreen.swift */,
 				B3D6E97F8AE72201F61A278D /* Detection.swift */,
+				18C1253FFE89CD39E57072C5 /* DistanceCalibration.swift */,
+				2C7508DF1D254AAC2148091E /* DistanceCalibrationView.swift */,
 				DDE3EA24702F375E2633F80D /* HazardAssessment.swift */,
 				07F933631D2672B8D64023DD /* Info.plist */,
 				32001EDD2F139DA2770009E6 /* ISeeYouApp.swift */,
+				1640F8AD5DBE70556ACE3D93 /* MetricDepthEstimator.swift */,
 				24B20B9A4C1677D141AC6D05 /* SpeechAlertService.swift */,
 				C37037D7BDFF5E098A5316E5 /* StableExplanations.swift */,
 			);
@@ -225,7 +237,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "if [ -d \"$SRCROOT/ISeeYou/Models/yolo11n.mlpackage\" ]; then\n  mkdir -p \"$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH\"\n  xcrun coremlcompiler compile \"$SRCROOT/ISeeYou/Models/yolo11n.mlpackage\" \"$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH\"\nfi\n";
+			shellScript = "if [ -d \"$SRCROOT/ISeeYou/Models/yolo11n.mlpackage\" ]; then\n  mkdir -p \"$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH\"\n  xcrun coremlcompiler compile \"$SRCROOT/ISeeYou/Models/yolo11n.mlpackage\" \"$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH\"\nfi\nif [ -d \"$SRCROOT/ISeeYou/Models/MetricDepthSmall.mlpackage\" ]; then\n  xcrun coremlcompiler compile \"$SRCROOT/ISeeYou/Models/MetricDepthSmall.mlpackage\" \"$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH\"\nfi\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -239,8 +251,11 @@
 				ECBBCEF7FC2F9F4EBB4ABD3A /* CameraLifecyclePolicy.swift in Sources */,
 				10E79A33C7A472F2DC20404D /* CameraScreen.swift in Sources */,
 				0CEA0F598CFA1C302F30B6BC /* Detection.swift in Sources */,
+				C62C5F845574042624FD4BF6 /* DistanceCalibration.swift in Sources */,
+				C9183839BFD0F40049D8A72F /* DistanceCalibrationView.swift in Sources */,
 				B1465570EC3A04CC6380A731 /* HazardAssessment.swift in Sources */,
 				65AF24B3530A082E638CFBEA /* ISeeYouApp.swift in Sources */,
+				C2BD3A884A35258AC18F365C /* MetricDepthEstimator.swift in Sources */,
 				8739CD2CB5D19101793CB727 /* SpeechAlertService.swift in Sources */,
 				A05C871FD973BC3BF194D5EB /* StableExplanations.swift in Sources */,
 			);
@@ -252,6 +267,7 @@
 			files = (
 				3F1F95DC3742BF74FF86E0F8 /* CameraLifecycleTests.swift in Sources */,
 				116AB28A72B98C8A921EE0C6 /* DetectionTests.swift in Sources */,
+				D5831BB9B1B4A85C7189D9D5 /* MetricDistanceTests.swift in Sources */,
 				16D684AC304958B28E29DBB4 /* StableExplanationTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
