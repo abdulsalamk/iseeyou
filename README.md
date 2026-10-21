@@ -60,3 +60,9 @@ The cyan trapezoid is a **candidate** corridor derived from image geometry and t
 Modular assessment, temporal alert policy and native speech are included, with conservative/balanced sensitivity, speech off by default, and VoiceOver-readable decision explanations. **Turning speech on does not make the current camera pipeline issue warnings:** the baseline supplies unknown pose, motion and floor contact and therefore abstains. This is intentional: a teddy on a sofa cannot safely be distinguished from one on the floor using class and box geometry alone. There is no calibrated depth or surface detector; COCO also lacks a generic wall class. Synthetic tests demonstrate policy behaviour when trustworthy evidence is supplied, not detection capability.
 
 Read [the capability gaps, test matrix and illustrative decision states](docs/HAZARD_ALERTS.md) before evaluating. This prototype does not provide reliable collision prevention. No new network use, storage, accounts, hardware or paid services are introduced.
+
+### Try voice on the current iPhone camera
+
+Tap **Test voice** to check native speech. Start the camera, then turn on **Speak object descriptions (preview)**. A supported object with at least 80% confidence whose bottom edge overlaps the candidate image corridor must persist for 0.7 seconds before it is described, for example “chair in front of the camera”. Descriptions repeat at most every eight seconds. This explicit preview mode describes objects; it does not establish floor contact, hazards, distance or safe walking space. It is separate from the hazard-warning mode described above, which still abstains without verified sensing. Enabling either mode switches the other off. Stop/background and audio interruption cancel speech. Camera migration to glasses is deferred.
+
+The voice preview and test button have additional XCTest source coverage; compilation, audible output and device behaviour remain unverified in this environment.

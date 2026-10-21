@@ -64,7 +64,10 @@ struct CameraScreen: View {
                 Text("Central 40% is an approximate image region, not a predicted walking path. Orange boxes overlap it. Detection does not establish whether an object is hazardous.").font(.caption).foregroundStyle(.secondary)
                 Text("Confidence: \(Int(engine.confidence * 100))%")
                 Slider(value: $engine.confidence, in: 0.1...0.9, step: 0.05).accessibilityLabel("Detection confidence")
-                Toggle("Spoken warnings (limited prototype)", isOn: $engine.speechEnabled)
+                Button("Test voice") { engine.testVoice() }.buttonStyle(.bordered)
+                Toggle("Speak object descriptions (preview)", isOn: $engine.detectionVoiceEnabled)
+                Text("Preview says, for example, ‘chair in front of the camera’. It describes supported objects in the candidate image region, not verified hazards or safe walking space. Speech starts after repeated observations and repeats at most every eight seconds.").font(.caption)
+                Toggle("Spoken hazard warnings (awaiting validated sensing)", isOn: $engine.speechEnabled)
                 Picker("Warning sensitivity", selection: $engine.sensitivity) {
                     ForEach(WarningSensitivity.allCases, id: \.self) { Text($0.rawValue.capitalized).tag($0) }
                 }

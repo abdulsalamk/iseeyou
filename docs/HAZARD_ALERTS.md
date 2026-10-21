@@ -15,8 +15,12 @@ only candidate geometry. Confidence and image area are gates, not distance.
 There is no calibrated distance, ground segmentation, camera pose/motion provider,
 floor-contact detector or verified free-space model in this delivery.
 
-Live HazardContext consequently stays unknown and speech abstains even when
-enabled. The floor/supported/occluded, stable-pose, walking and imminent-evidence
+Live HazardContext consequently stays unknown and hazard-warning speech abstains even when
+enabled. An explicitly labelled object-description preview and Test voice button
+provide audible development testing without claiming that detections are hazards.
+Preview uses the same confirmation/repeat policy, with an 80% confidence gate;
+it never says stop, clear, safe, trip hazard or a numerical distance.
+The two speech modes are mutually exclusive. The floor/supported/occluded, stable-pose, walking and imminent-evidence
 inputs are seams for a future validated provider; they are not inferred from
 object labels. No UI control lets users claim that unknown evidence is verified.
 The direction “ahead” refers only to the candidate corridor, never a verified

@@ -42,5 +42,20 @@ final class HazardAlertController {
         guard enabled, !interrupted else { reset(); return }
         if let alert = policy.update(decisions, at: time) { speech.speak(alert) }
     }
+    // Explicit detection-preview mode: describes image position, never hazard risk.
+    func preview(_ detections: [Detection], at time: TimeInterval) {
+        let decisions = detections.filter { $0.confidence >= 0.8 && CandidateCorridor.intersectsFoot($0.bounds) }
+            .map { detection in
+                HazardDecision(detection: detection, level: .caution,
+                    rationale: "Object description only; risk unverified",
+                    message: "\(detection.label) in front of the camera")
+            }
+        update(decisions, at: time, enabled: true)
+    }
+    func testVoice() {
+        guard !interrupted else { return }
+        reset()
+        speech.speak(SpokenAlert(level: .caution, message: "Voice is working. Object descriptions do not confirm hazards."))
+    }
     func reset() { policy.reset(); speech.cancel() }
 }

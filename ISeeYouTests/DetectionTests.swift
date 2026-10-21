@@ -133,6 +133,26 @@ private final class SpySpeech: SpeechAlerting {
 }
 
 final class HazardLifecycleTests: XCTestCase {
+    func testObjectVoicePreviewConfirmsAndDescribesWithoutHazardClaim() {
+        let speech = SpySpeech()
+        let controller = HazardAlertController(speech: speech)
+        for tick in 0...8 {
+            controller.preview([Detection(label: "chair", confidence: 0.9,
+                bounds: CGRect(x: 0.4, y: 0.05, width: 0.2, height: 0.5))], at: Double(tick) * 0.1)
+        }
+        XCTAssertEqual(speech.alerts.count, 1)
+        XCTAssertEqual(speech.alerts.first?.message, "chair in front of the camera")
+        controller.reset()
+        XCTAssertEqual(speech.cancellations, 1)
+    }
+    func testVoiceButtonUsesInjectedSpeechService() {
+        let speech = SpySpeech()
+        let controller = HazardAlertController(speech: speech)
+        controller.testVoice()
+        XCTAssertEqual(speech.alerts.count, 1)
+        XCTAssertTrue(speech.alerts[0].message.contains("Voice is working"))
+    }
+
     func testAudioInterruptionCancelsPendingState() {
         let speech = SpySpeech()
         let controller = HazardAlertController(speech: speech)

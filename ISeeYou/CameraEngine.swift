@@ -18,8 +18,18 @@ final class CameraEngine: NSObject, ObservableObject, AVCaptureVideoDataOutputSa
     @Published private(set) var thermal = "Unknown"
     @Published var confidence: Double = 0.4
     @Published var speechEnabled = false {
-        didSet { alerts.reset() }
+        didSet {
+            if speechEnabled { detectionVoiceEnabled = false }
+            alerts.reset()
+        }
     }
+    @Published var detectionVoiceEnabled = false {
+        didSet {
+            if detectionVoiceEnabled { speechEnabled = false }
+            alerts.reset()
+        }
+    }
+    func testVoice() { alerts.testVoice() }
     @Published var sensitivity: WarningSensitivity = .conservative {
         didSet { alerts.reset() }
     }
@@ -181,8 +191,13 @@ final class CameraEngine: NSObject, ObservableObject, AVCaptureVideoDataOutputSa
                 // Explicit unknown evidence makes this baseline abstain from speech.
                 self.hazardDecisions = self.assessor.assess(results, context: HazardContext(), sensitivity: self.sensitivity)
                 let stale = age > 500 || CACurrentMediaTime() - end > 0.5
-                self.alerts.update(stale ? [] : self.hazardDecisions, at: CACurrentMediaTime(), enabled: self.speechEnabled)
-                self.alertStatus = stale ? "Suppressed: stale frame" : (self.speechEnabled ? "Suppressed: geometry unverified" : "Speech off")
+                if self.detectionVoiceEnabled {
+                    self.alerts.preview(stale ? [] : results, at: CACurrentMediaTime())
+                    self.alertStatus = stale ? "Suppressed: stale frame" : "Object voice preview active; hazard risk unverified"
+                } else {
+                    self.alerts.update(stale ? [] : self.hazardDecisions, at: CACurrentMediaTime(), enabled: self.speechEnabled)
+                    self.alertStatus = stale ? "Suppressed: stale frame" : (self.speechEnabled ? "Suppressed: geometry unverified" : "Speech off")
+                }
                 self.detections = results.filter { $0.confidence >= Float(self.confidence) }
                 self.inferenceMS = (end - start) * 1000
                 self.frameAgeMS = age
