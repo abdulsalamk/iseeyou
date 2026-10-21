@@ -89,8 +89,9 @@ final class HazardAlertController {
         if let alert = policy.update(decisions, at: time) { speech.speak(alert) }
     }
     // Explicit detection-preview mode: describes image position, never hazard risk.
-    func preview(_ detections: [Detection], at time: TimeInterval, distanceScale: Double? = nil) {
-        let decisions = detections.filter { $0.confidence >= 0.8 && CandidateCorridor.intersectsFoot($0.bounds) }
+    func preview(_ detections: [Detection], at time: TimeInterval, distanceScale: Double? = nil, minimumConfidence: Float = 0.4) {
+        let decisions = detections.filter { $0.confidence >= minimumConfidence && CandidateCorridor.intersectsFoot($0.bounds) }
+            .map { $0.conservativelyNamed() }
             .compactMap { detection -> HazardDecision? in
                 let message: String
                 if let distanceScale {

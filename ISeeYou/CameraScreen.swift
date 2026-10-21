@@ -76,8 +76,9 @@ struct CameraScreen: View {
                         frameAgeMS: engine.frameAgeMS, frameDate: engine.lastDistanceFrame)
                 }
                 Text("Central 40% is an approximate image region, not a predicted walking path. Orange boxes overlap it. Detection does not establish whether an object is hazardous.").font(.caption).foregroundStyle(.secondary)
-                Text("Confidence: \(Int(engine.confidence * 100))%")
+                Text("Minimum detection confidence: \(Int(engine.confidence * 100))%")
                 Slider(value: $engine.confidence, in: 0.1...0.9, step: 0.05).accessibilityLabel("Detection confidence")
+                Text("Below 50% confidence, retained detections are named unknown object on screen and in speech. Detections below the minimum above are hidden.").font(.caption)
                 Text("Preview says, for example, ‘chair in front of the camera’. It describes supported objects in the candidate image region, not verified hazards or safe walking space. Speech starts after repeated observations and repeats at most every eight seconds.").font(.caption)
                 Toggle("Spoken hazard warnings (awaiting validated sensing)", isOn: $engine.speechEnabled)
                 Picker("Warning sensitivity", selection: $engine.sensitivity) {

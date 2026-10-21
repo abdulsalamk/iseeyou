@@ -351,15 +351,16 @@ final class CameraEngine: NSObject, ObservableObject, AVCaptureVideoDataOutputSa
             }
             DispatchQueue.main.async {
                 guard self.running, self.wantsRunning, self.generation == lease else { return }
+                results = results.map { $0.conservativelyNamed() }
                 // No validated pose, motion or ground-contact provider ships yet.
                 // Explicit unknown evidence makes this baseline abstain from speech.
                 self.hazardDecisions = self.assessor.assess(results, context: HazardContext(), sensitivity: self.sensitivity)
                 let stale = age > 500 || CACurrentMediaTime() - end > 0.5
                 if self.distanceSpeechEnabled && self.calibrationProfile.passed {
-                    self.alerts.preview(stale ? [] : results, at: CACurrentMediaTime(), distanceScale: self.calibrationProfile.scale)
+                    self.alerts.preview(stale ? [] : results, at: CACurrentMediaTime(), distanceScale: self.calibrationProfile.scale, minimumConfidence: Float(self.confidence))
                     self.alertStatus = stale ? "Suppressed: stale frame" : "Experimental distance descriptions; risk unverified"
                 } else if self.detectionVoiceEnabled {
-                    self.alerts.preview(stale ? [] : results, at: CACurrentMediaTime())
+                    self.alerts.preview(stale ? [] : results, at: CACurrentMediaTime(), minimumConfidence: Float(self.confidence))
                     self.alertStatus = stale ? "Suppressed: stale frame" : "Object voice preview active; hazard risk unverified"
                 } else {
                     self.alerts.update(stale ? [] : self.hazardDecisions, at: CACurrentMediaTime(), enabled: self.speechEnabled)

@@ -8,6 +8,10 @@ struct Detection: Identifiable {
     // Vision coordinates: normalized, bottom-left origin, portrait image.
     let bounds: CGRect
     var distance: ObjectDistance? = nil
+    func conservativelyNamed() -> Detection {
+        guard confidence < 0.5 else { return self }
+        return Detection(label: "unknown object", confidence: confidence, bounds: bounds, distance: distance)
+    }
     var inPath: Bool { bounds.maxX > 0.3 && bounds.minX < 0.7 }
 }
 
