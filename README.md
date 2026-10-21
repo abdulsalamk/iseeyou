@@ -34,7 +34,7 @@ The script downloads official `yolo11n.pt`, exports a 640x640 FP16 Core ML packa
 - Serial background camera/inference queue, discarded late frames and one request per frame prevent an accumulating inference backlog. UI updates happen on the main thread.
 - Confidence slider filters displayed results. Model NMS may impose an additional minimum confidence floor.
 - Shows processed FPS, Vision inference duration, capture-to-result frame age and thermal state. Frame age excludes UI render time and is **not alert latency**. Performance targets remain unverified until measured on a physical iPhone 16.
-- No numerical distance, speech, calibration or depth inference is shipped in these first two milestones. Distance explicitly remains unavailable/uncalibrated. See [milestone 3 preparation](docs/DEPTH_PLAN.md).
+- No numerical distance, calibration or depth inference is shipped. The limited hazard prototype adds a native speech service, disabled by default; live alerts abstain because validated pose, motion and ground contact are unavailable. Distance explicitly remains unavailable/uncalibrated. See [milestone 3 preparation](docs/DEPTH_PLAN.md).
 - No microphone, photo library, networking or cloud services are used.
 
 ## Validation
@@ -48,6 +48,15 @@ xcodebuild -project ISeeYou.xcodeproj -scheme ISeeYou \
   -destination 'platform=iOS Simulator,name=iPhone 16' test
 ```
 
-Unit tests cover path-boundary overlap and conversion from Vision coordinates to the preview. Device checks: deny permission then enable in Settings; preview with missing model; add NMS model and verify a person/chair at left, centre and right; stop/start; background during inference; rotate phone (app stays portrait). Test different light levels and overlapping objects. Confirm no stale boxes after stopping and no saved media. Use Instruments for memory/energy and sustained thermal observations. Record device OS, model/package versions, elapsed time and lighting with each run. The app was built, signed, installed and launched on the connected iPhone 15 Pro. Geometry assertions passed on the Mac; the XCTest suite has not run on a device. No physical iPhone 16, model accuracy, 10+ FPS, subsecond alert latency or battery result is claimed yet.
+Unit tests cover centre-region overlap, coordinate conversion, synthetic hazard evidence, temporal policy and cancellation. The new hazard tests have not been run in Xcode; see [hazard prototype validation](docs/HAZARD_ALERTS.md). Device checks: deny permission then enable in Settings; preview with missing model; add NMS model and verify a person/chair at left, centre and right; stop/start; background during inference; rotate phone (app stays portrait). Test different light levels and overlapping objects. Confirm no stale boxes after stopping and no saved media. Use Instruments for memory/energy and sustained thermal observations. Record device OS, model/package versions, elapsed time and lighting with each run. The app was built, signed, installed and launched on the connected iPhone 15 Pro. Geometry assertions passed on the Mac; the XCTest suite has not run on a device. No physical iPhone 16, model accuracy, 10+ FPS, subsecond alert latency or battery result is claimed yet.
 
 Experimental research prototype only. **Not a mobility aid or collision-avoidance system**. Do not use for road crossing or navigation, or replace a white cane, guide dog or human assistance.
+
+
+## Limited hazard-alert prototype (issue #1)
+
+The cyan trapezoid is a **candidate** corridor derived from image geometry and the bottom edge of object boxes. It is uncalibrated and has no verified relationship to the user's walking path. The original yellow centre-region indicator and object overlays remain unchanged.
+
+Modular assessment, temporal alert policy and native speech are included, with conservative/balanced sensitivity, speech off by default, and VoiceOver-readable decision explanations. **Turning speech on does not make the current camera pipeline issue warnings:** the baseline supplies unknown pose, motion and floor contact and therefore abstains. This is intentional: a teddy on a sofa cannot safely be distinguished from one on the floor using class and box geometry alone. There is no calibrated depth or surface detector; COCO also lacks a generic wall class. Synthetic tests demonstrate policy behaviour when trustworthy evidence is supplied, not detection capability.
+
+Read [the capability gaps, test matrix and illustrative decision states](docs/HAZARD_ALERTS.md) before evaluating. This prototype does not provide reliable collision prevention. No new network use, storage, accounts, hardware or paid services are introduced.

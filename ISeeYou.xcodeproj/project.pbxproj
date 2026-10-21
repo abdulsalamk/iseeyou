@@ -12,6 +12,9 @@
 		116AB28A72B98C8A921EE0C6 /* DetectionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7196EEBA195DAE7C56F2B1B /* DetectionTests.swift */; };
 		4E649F691FE56EE101F80B61 /* CameraEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83A8FA7B540E7FEE73AA20DB /* CameraEngine.swift */; };
 		65AF24B3530A082E638CFBEA /* ISeeYouApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 32001EDD2F139DA2770009E6 /* ISeeYouApp.swift */; };
+		BF0000000000000000000000 /* HazardAssessment.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF0000000000000000000000; };
+		BF0000000000000000000001 /* AlertPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF0000000000000000000001; };
+		BF0000000000000000000002 /* SpeechAlertService.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF0000000000000000000002; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -33,6 +36,9 @@
 		B3D6E97F8AE72201F61A278D /* Detection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Detection.swift; sourceTree = "<group>"; };
 		D7196EEBA195DAE7C56F2B1B /* DetectionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DetectionTests.swift; sourceTree = "<group>"; };
 		DD308043EA899FBA5CD7843B /* ISeeYou.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = ISeeYou.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		AF0000000000000000000000 /* HazardAssessment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HazardAssessment.swift; sourceTree = "<group>"; };
+		AF0000000000000000000001 /* AlertPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AlertPolicy.swift; sourceTree = "<group>"; };
+		AF0000000000000000000002 /* SpeechAlertService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeechAlertService.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -65,6 +71,9 @@
 		C579F82F51B2E2CB72FA6456 /* ISeeYou */ = {
 			isa = PBXGroup;
 			children = (
+				AF0000000000000000000000 /* HazardAssessment.swift */,
+				AF0000000000000000000001 /* AlertPolicy.swift */,
+				AF0000000000000000000002 /* SpeechAlertService.swift */,
 				83A8FA7B540E7FEE73AA20DB /* CameraEngine.swift */,
 				3BD40B7849A3797D5F19112B /* CameraScreen.swift */,
 				B3D6E97F8AE72201F61A278D /* Detection.swift */,
@@ -171,6 +180,9 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				BF0000000000000000000000 /* HazardAssessment.swift in Sources */,
+				BF0000000000000000000001 /* AlertPolicy.swift in Sources */,
+				BF0000000000000000000002 /* SpeechAlertService.swift in Sources */,
 				4E649F691FE56EE101F80B61 /* CameraEngine.swift in Sources */,
 				10E79A33C7A472F2DC20404D /* CameraScreen.swift in Sources */,
 				0CEA0F598CFA1C302F30B6BC /* Detection.swift in Sources */,
@@ -422,3 +434,4 @@
 	};
 	rootObject = F5465D63FFFB250FC6D8DB70 /* Project object */;
 }
+

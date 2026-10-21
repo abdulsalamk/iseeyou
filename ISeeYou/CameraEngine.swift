@@ -17,6 +17,18 @@ final class CameraEngine: NSObject, ObservableObject, AVCaptureVideoDataOutputSa
     @Published private(set) var fps = 0.0
     @Published private(set) var thermal = "Unknown"
     @Published var confidence: Double = 0.4
+    @Published var speechEnabled = false {
+        didSet { alerts.reset() }
+    }
+    @Published var sensitivity: WarningSensitivity = .conservative {
+        didSet { alerts.reset() }
+    }
+    @Published var showHazardDebug = true
+    @Published private(set) var hazardDecisions: [HazardDecision] = []
+    @Published private(set) var alertStatus = "Speech off"
+    private let assessor: any HazardAssessing = HazardAssessment()
+    private let alerts = HazardAlertController()
+    private var generation = UUID() // main-thread lifecycle lease
     private var request: VNCoreMLRequest?
     private var configured = false
     private var wantsRunning = false // main-thread only
@@ -24,7 +36,9 @@ final class CameraEngine: NSObject, ObservableObject, AVCaptureVideoDataOutputSa
     private var windowStart = CACurrentMediaTime()
 
     func start() {
+        guard !wantsRunning else { return }
         wantsRunning = true
+        generation = UUID()
         switch AVCaptureDevice.authorizationStatus(for: .video) {
         case .authorized: launch()
         case .notDetermined:
@@ -39,12 +53,14 @@ final class CameraEngine: NSObject, ObservableObject, AVCaptureVideoDataOutputSa
     }
 
     private func deny() {
+        wantsRunning = false
         denied = true
         status = "Camera access denied. Enable it in Settings."
     }
 
     private func launch() {
         denied = false
+        let lease = generation
         queue.async { [self] in
             do {
                 if !configured { try configure() }
@@ -53,13 +69,18 @@ final class CameraEngine: NSObject, ObservableObject, AVCaptureVideoDataOutputSa
                 frameCount = 0
                 windowStart = CACurrentMediaTime()
                 DispatchQueue.main.async {
+                    guard self.wantsRunning, self.generation == lease else { return }
                     self.running = true
                     self.status = self.request == nil
                         ? "Preview only — add yolo11n.mlpackage (see README)."
                         : "Local object detection active • distance unavailable"
                 }
             } catch {
-                DispatchQueue.main.async { self.status = error.localizedDescription }
+                DispatchQueue.main.async {
+                    guard self.generation == lease else { return }
+                    self.wantsRunning = false
+                    self.status = error.localizedDescription
+                }
             }
         }
     }
@@ -100,9 +121,17 @@ final class CameraEngine: NSObject, ObservableObject, AVCaptureVideoDataOutputSa
 
     func stop() {
         wantsRunning = false
+        generation = UUID()
+        running = false
+        detections = []
+        hazardDecisions = []
+        alertStatus = "Stopped; pending speech cancelled"
+        alerts.reset()
+        let lease = generation
         queue.async { [self] in
             session.stopRunning()
             DispatchQueue.main.async {
+                guard self.generation == lease else { return }
                 self.running = false
                 self.detections = []
                 self.fps = 0
@@ -113,11 +142,18 @@ final class CameraEngine: NSObject, ObservableObject, AVCaptureVideoDataOutputSa
 
     func captureOutput(_ output: AVCaptureOutput, didOutput sampleBuffer: CMSampleBuffer, from connection: AVCaptureConnection) {
         guard let request, let buffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
+        let lease = DispatchQueue.main.sync { self.generation }
         let start = CACurrentMediaTime()
         do {
             try VNImageRequestHandler(cvPixelBuffer: buffer, orientation: .up).perform([request])
             guard let observations = request.results as? [VNRecognizedObjectObservation] else {
-                DispatchQueue.main.async { self.status = "Unsupported model outputs. Export YOLO11n with nms=True." }
+                DispatchQueue.main.async {
+                    guard self.generation == lease else { return }
+                    self.alerts.reset()
+                    self.hazardDecisions = []
+                    self.detections = []
+                    self.status = "Unsupported model outputs. Export YOLO11n with nms=True."
+                }
                 return
             }
             let results = observations.compactMap { observation -> Detection? in
@@ -140,7 +176,13 @@ final class CameraEngine: NSObject, ObservableObject, AVCaptureVideoDataOutputSa
             @unknown default: heat = "Unknown"
             }
             DispatchQueue.main.async {
-                guard self.running else { return }
+                guard self.running, self.wantsRunning, self.generation == lease else { return }
+                // No validated pose, motion or ground-contact provider ships yet.
+                // Explicit unknown evidence makes this baseline abstain from speech.
+                self.hazardDecisions = self.assessor.assess(results, context: HazardContext(), sensitivity: self.sensitivity)
+                let stale = age > 500 || CACurrentMediaTime() - end > 0.5
+                self.alerts.update(stale ? [] : self.hazardDecisions, at: CACurrentMediaTime(), enabled: self.speechEnabled)
+                self.alertStatus = stale ? "Suppressed: stale frame" : (self.speechEnabled ? "Suppressed: geometry unverified" : "Speech off")
                 self.detections = results.filter { $0.confidence >= Float(self.confidence) }
                 self.inferenceMS = (end - start) * 1000
                 self.frameAgeMS = age
@@ -148,7 +190,9 @@ final class CameraEngine: NSObject, ObservableObject, AVCaptureVideoDataOutputSa
                 self.thermal = heat
             }
         } catch {
-            DispatchQueue.main.async { self.detections = []; self.status = "Inference failed: \(error.localizedDescription)" }
+            DispatchQueue.main.async {
+                guard self.generation == lease else { return }
+                self.alerts.reset(); self.hazardDecisions = []; self.detections = []; self.status = "Inference failed: \(error.localizedDescription)" }
         }
     }
 }
@@ -157,3 +201,4 @@ private enum CameraError: LocalizedError {
     case message(String)
     var errorDescription: String? { if case let .message(text) = self { return text }; return nil }
 }
+

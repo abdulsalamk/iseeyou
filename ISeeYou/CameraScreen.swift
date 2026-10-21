@@ -24,6 +24,16 @@ struct CameraScreen: View {
                             .overlay(Rectangle().stroke(.yellow.opacity(0.7), style: StrokeStyle(lineWidth: 1, dash: [6])))
                             .frame(width: proxy.size.width * 0.4)
                             .offset(x: proxy.size.width * 0.3)
+                        if engine.showHazardDebug {
+                            Path { path in
+                                let w = proxy.size.width, h = proxy.size.height
+                                path.move(to: CGPoint(x: w * 0.18, y: h))
+                                path.addLine(to: CGPoint(x: w * 0.40, y: h * 0.45))
+                                path.addLine(to: CGPoint(x: w * 0.60, y: h * 0.45))
+                                path.addLine(to: CGPoint(x: w * 0.82, y: h))
+                                path.closeSubpath()
+                            }.stroke(.cyan, style: StrokeStyle(lineWidth: 2, dash: [4]))
+                        }
                         ForEach(engine.detections) { detection in
                             let rect = DetectionGeometry.displayRect(detection.bounds, in: proxy.size)
                             Rectangle().stroke(detection.inPath ? .orange : .green, lineWidth: 2)
@@ -54,6 +64,20 @@ struct CameraScreen: View {
                 Text("Central 40% is an approximate image region, not a predicted walking path. Orange boxes overlap it. Detection does not establish whether an object is hazardous.").font(.caption).foregroundStyle(.secondary)
                 Text("Confidence: \(Int(engine.confidence * 100))%")
                 Slider(value: $engine.confidence, in: 0.1...0.9, step: 0.05).accessibilityLabel("Detection confidence")
+                Toggle("Spoken warnings (limited prototype)", isOn: $engine.speechEnabled)
+                Picker("Warning sensitivity", selection: $engine.sensitivity) {
+                    ForEach(WarningSensitivity.allCases, id: \.self) { Text($0.rawValue.capitalized).tag($0) }
+                }
+                Toggle("Hazard decision debug", isOn: $engine.showHazardDebug)
+                Text("Candidate corridor is uncalibrated. Pose, walking and floor contact are unverified; live speech abstains until validated sensing is integrated. Surface hazards are unavailable.").font(.caption)
+                if engine.showHazardDebug {
+                    Text("Cyan trapezoid: uncertain candidate corridor").font(.caption)
+                    Text(engine.alertStatus).accessibilityIdentifier("hazardStatus")
+                    ForEach(engine.hazardDecisions, id: \.detection.id) { decision in
+                        Text("\(decision.detection.label) \(Int(decision.detection.confidence * 100))%: \(decision.rationale)")
+                            .font(.caption)
+                    }
+                }
                 Text("Frames stay on this iPhone. Nothing is recorded or uploaded.").font(.footnote)
                 Text("Experimental prototype. Not a mobility aid or collision-avoidance system. Do not use for road crossing or navigation, or replace a white cane, guide dog, or human assistance.")
                     .font(.footnote).foregroundStyle(.secondary)
@@ -89,3 +113,4 @@ private struct CameraPreview: UIViewRepresentable {
     }
     func updateUIView(_ view: PreviewSurface, context: Context) {}
 }
+
