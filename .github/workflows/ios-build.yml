@@ -1,0 +1,39 @@
+name: iOS cloud build
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: macos-15
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: Show Xcode version
+        run: xcodebuild -version
+      - name: Build iPhone app without signing
+        run: |
+          set -o pipefail
+          xcodebuild -project ISeeYou.xcodeproj -scheme ISeeYou -configuration Release -destination 'generic/platform=iOS' -derivedDataPath build CODE_SIGNING_ALLOWED=NO build | tee build.log
+      - name: Package unsigned app for later signing
+        run: |
+          mkdir -p package/Payload
+          cp -R build/Build/Products/Release-iphoneos/ISeeYou.app package/Payload/
+          cd package
+          zip -qry ../ISeeYou-unsigned.ipa Payload
+      - name: Save unsigned build (requires signing before installation)
+        uses: actions/upload-artifact@v4
+        with:
+          name: ISeeYou-unsigned-requires-signing
+          path: ISeeYou-unsigned.ipa
+          retention-days: 7
+      - name: Save build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-build-log
+          path: build.log
+          if-no-files-found: ignore
+          retention-days: 7
