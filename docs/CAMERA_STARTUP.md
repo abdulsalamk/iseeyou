@@ -27,3 +27,17 @@ Code inspection identified concrete startup weaknesses: detector loading precede
 ## Manual-only launch correction
 
 The earlier functional diagnostic used a launch argument to start capture automatically; the user explicitly rejected that behaviour. The auto-start code path was removed completely. The app is subsequently installed and launched without such an argument. Foreground return does not start capture. The permission-completion path only continues an existing explicit Start tap, never a new launch.
+
+## Subsequent hands-on physical-device UI verification
+
+After the user authorised direct screen interaction, Device Hub's `Salam’s iPhone` window was identified as the paired **physical iPhone 15 Pro** (distinct from its separate simulator entries and from the separate iPhone Mirroring application).
+
+Using that physical screen, the operator verified:
+
+- Normal launch showed Start camera, Camera stopped and zero received frames, with no active camera indicator.
+- Clicking Start changed the button to Stop camera, displayed Camera active / object detection ready, enabled the green camera-use indicator and increased the received-frame count (81, then 535 observed).
+- Clicking Stop returned Start camera / Camera stopped and removed the camera indicator.
+- Starting again, pressing Device Hub Home and reopening I See You left capture stopped with the explicit inactive/resume message. It did not restart on foreground return.
+- Apple's built-in Camera app was opened for comparison, without taking a photo. Its preview was similarly dark. The operator returned to I See You with capture stopped. A meaningful scene, correct object labels and inference accuracy were not established from this dark view.
+
+These are direct operator UI checks correlated with device logs, not a claim that the blocked XCTest UI suite passed. First-use permission UI and runtime-error recovery remain untested physically. The camera auto-start diagnostic path remains removed.
