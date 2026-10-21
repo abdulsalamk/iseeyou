@@ -53,6 +53,8 @@ final class CameraEngine: NSObject, ObservableObject, AVCaptureVideoDataOutputSa
     private var request: VNCoreMLRequest?
     private var configured = false
     private var wantsRunning = false // main-thread only
+    private var imageLogGeneration: UUID?
+    private var imageLogCount = 0
     private var frameCount = 0
     private var windowStart = CACurrentMediaTime()
 
@@ -235,9 +237,37 @@ final class CameraEngine: NSObject, ObservableObject, AVCaptureVideoDataOutputSa
         }
     }
 
+    // Numeric brightness diagnostics only: no image is saved or transmitted.
+    private func logImageBrightness(_ buffer: CVPixelBuffer) {
+        #if DEBUG
+        guard CVPixelBufferGetPixelFormatType(buffer) == kCVPixelFormatType_32BGRA,
+              CVPixelBufferLockBaseAddress(buffer, .readOnly) == kCVReturnSuccess else { return }
+        defer { CVPixelBufferUnlockBaseAddress(buffer, .readOnly) }
+        guard let base = CVPixelBufferGetBaseAddress(buffer) else { return }
+        let bytes = base.assumingMemoryBound(to: UInt8.self)
+        let width = CVPixelBufferGetWidth(buffer), height = CVPixelBufferGetHeight(buffer)
+        let rowBytes = CVPixelBufferGetBytesPerRow(buffer)
+        var minimum = 255, maximum = 0, sum = 0, count = 0
+        for y in stride(from: 0, to: height, by: max(1, height / 16)) {
+            for x in stride(from: 0, to: width, by: max(1, width / 16)) {
+                let index = y * rowBytes + x * 4
+                let value = (Int(bytes[index]) + Int(bytes[index + 1]) + Int(bytes[index + 2])) / 3
+                minimum = min(minimum, value); maximum = max(maximum, value)
+                sum += value; count += 1
+            }
+        }
+        cameraLog("frame \(width)x\(height) sampled RGB brightness min=\(minimum), mean=\(sum / max(count, 1)), max=\(maximum)")
+        #endif
+    }
+
     func captureOutput(_ output: AVCaptureOutput, didOutput sampleBuffer: CMSampleBuffer, from connection: AVCaptureConnection) {
         let lease = generation
         guard let buffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
+        #if DEBUG
+        if imageLogGeneration != lease { imageLogGeneration = lease; imageLogCount = 0 }
+        imageLogCount += 1
+        if imageLogCount == 1 || imageLogCount % 60 == 0 { logImageBrightness(buffer) }
+        #endif
         DispatchQueue.main.async {
             guard self.wantsRunning, self.generation == lease else { return }
             self.receivedFrames += 1

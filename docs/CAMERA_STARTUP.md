@@ -41,3 +41,14 @@ Using that physical screen, the operator verified:
 - Apple's built-in Camera app was opened for comparison, without taking a photo. Its preview was similarly dark. The operator returned to I See You with capture stopped. A meaningful scene, correct object labels and inference accuracy were not established from this dark view.
 
 These are direct operator UI checks correlated with device logs, not a claim that the blocked XCTest UI suite passed. First-use permission UI and runtime-error recovery remain untested physically. The camera auto-start diagnostic path remains removed.
+
+## Dark video cause isolated: Device Hub camera conflict
+
+Apple's official documentation states that camera/microphone access conflicts with interactive physical-device control in Device Hub, and affected apps may receive empty video:
+https://developer.apple.com/documentation/xcode/interacting-with-your-app-in-device-hub
+
+A metadata-only comparison confirmed the conflict here. While the remote screen was connected, samples from the app's 720x1280 BGRA frames had brightness min/mean/max all equal to 16. Quitting Device Hub ended interactive remote screen control; the same explicitly started capture session then delivered varied samples (for example min 62, mean 141, max 254). No image was saved by the diagnostic code. Console access remained available without a live remote screen.
+
+The user subsequently confirmed the app appeared to be working again on the physical phone. Keep Device Hub/iPhone Mirroring interactive screen control disconnected for real camera evaluation. Do not infer real scene quality from a running session or frame count alone. The operator did not visually inspect a live picture after disconnection; restoration was established through numeric diagnostics plus the user's observation.
+
+Debug builds include periodic sampled brightness logging to distinguish empty input from a preview-only issue. Ordinary launch and foreground return remain manual-start only. No distance accuracy or recognition-accuracy result is established by this incident.
