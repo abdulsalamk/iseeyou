@@ -1,5 +1,6 @@
 import Foundation
 import CoreMedia
+import QuartzCore
 import MWDATCore
 import MWDATCamera
 
@@ -15,7 +16,7 @@ final class MetaGlassesSource: @unchecked Sendable {
     private var sessionTokens = ListenerTokenBag()
     private var streamTokens = ListenerTokenBag()
     private var attempt = UUID()
-    private var frameHandler: ((CMSampleBuffer) -> Void)?
+    private var frameHandler: ((CMSampleBuffer, TimeInterval) -> Void)?
     private var stateHandler: ((Bool, String) -> Void)?
     private var setupTask: Task<Void, Never>?
 
@@ -72,9 +73,10 @@ final class MetaGlassesSource: @unchecked Sendable {
             } catch { self.onSetupStatus?("Glasses callback: " + error.localizedDescription) }
         }
     }
-    func start(onFrame: @escaping (CMSampleBuffer) -> Void, onState: @escaping (Bool, String) -> Void) {
+    func start(onFrame: @escaping (CMSampleBuffer, TimeInterval) -> Void, onState: @escaping (Bool, String) -> Void) {
         stop()
         let lease = UUID(); attempt = lease
+        GlassesSessionDiagnostics.record(["event": "start", "decodedFrames": 0])
         frameHandler = onFrame; stateHandler = onState
         Task { @MainActor [weak self] in
             guard let self, self.attempt == lease else { return }
@@ -106,6 +108,7 @@ final class MetaGlassesSource: @unchecked Sendable {
                 connection.statePublisher.listen { [weak self] state in
                     DispatchQueue.main.async {
                         guard let self, self.attempt == lease else { return }
+                        GlassesSessionDiagnostics.record(["sessionState": String(describing: state)])
                         switch state {
                         case .started: self.beginStream(connection, lease: lease)
                         case .paused: self.fail("Glasses session paused. Tap Start to retry.", lease: lease)
@@ -124,15 +127,27 @@ final class MetaGlassesSource: @unchecked Sendable {
     private func beginStream(_ connection: DeviceSession, lease: UUID) {
         guard camera == nil, attempt == lease else { return }
         do {
-            guard let camera = try connection.addCamera(config: StreamConfiguration(videoCodec: .raw, resolution: .medium, frameRate: 15)) else {
+            guard let camera = try connection.addCamera(config: StreamConfiguration(videoCodec: .hvc1, resolution: .medium, frameRate: 15)) else {
                 fail("Cannot create glasses camera stream.", lease: lease); return
             }
             self.camera = camera
             let frameHandler = self.frameHandler
-            camera.stream.videoFramePublisher.listen { frame in frameHandler?(frame.sampleBuffer) }.store(in: streamTokens)
+            let decoder = GlassesVideoDecoder()
+            camera.stream.videoFramePublisher.listen { [weak self] frame in
+                let receivedAt = CACurrentMediaTime()
+                do {
+                    if let sample = try decoder.decode(frame.sampleBuffer) {
+                        GlassesSessionDiagnostics.frameDecoded()
+                        frameHandler?(sample, receivedAt)
+                    }
+                } catch {
+                    DispatchQueue.main.async { self?.fail(error.localizedDescription, lease: lease) }
+                }
+            }.store(in: streamTokens)
             camera.stream.statePublisher.listen { [weak self] state in
                 DispatchQueue.main.async {
                     guard let self, self.attempt == lease else { return }
+                    GlassesSessionDiagnostics.record(["streamState": String(describing: state)])
                     switch state {
                     case .streaming: self.stateHandler?(true, "Meta glasses camera active · estimates unverified")
                     case .paused: self.fail("Glasses camera paused. Tap Start to retry.", lease: lease)
@@ -150,6 +165,7 @@ final class MetaGlassesSource: @unchecked Sendable {
     private func fail(_ message: String, lease: UUID) {
         guard attempt == lease else { return }
         let callback = stateHandler
+        GlassesSessionDiagnostics.record(["error": message])
         stop()
         callback?(false, message)
     }

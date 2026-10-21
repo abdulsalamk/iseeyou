@@ -22,13 +22,16 @@
 		6CE4B5A87531C1B43C16F7A6 /* AudioOutputPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = A94A010CFD8FB909BA10119E /* AudioOutputPicker.swift */; };
 		8739CD2CB5D19101793CB727 /* SpeechAlertService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 24B20B9A4C1677D141AC6D05 /* SpeechAlertService.swift */; };
 		A05C871FD973BC3BF194D5EB /* StableExplanations.swift in Sources */ = {isa = PBXBuildFile; fileRef = C37037D7BDFF5E098A5316E5 /* StableExplanations.swift */; };
+		A56B2EF436D7AA7D3E4DCD6E /* GlassesVideoDecoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 99A73CE4E77AB13F60B884A6 /* GlassesVideoDecoder.swift */; };
 		AE312A7033320F1DE7B69A92 /* CameraStartupUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5861F32A9B8B6F58AE468FE4 /* CameraStartupUITests.swift */; };
 		B1465570EC3A04CC6380A731 /* HazardAssessment.swift in Sources */ = {isa = PBXBuildFile; fileRef = DDE3EA24702F375E2633F80D /* HazardAssessment.swift */; };
+		BCE03D81011A2D8BF2096D10 /* GlassesSessionDiagnostics.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2EDC7408A4D1B4F7C55CF88 /* GlassesSessionDiagnostics.swift */; };
 		C2BD3A884A35258AC18F365C /* MetricDepthEstimator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1640F8AD5DBE70556ACE3D93 /* MetricDepthEstimator.swift */; };
 		C62C5F845574042624FD4BF6 /* DistanceCalibration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18C1253FFE89CD39E57072C5 /* DistanceCalibration.swift */; };
 		C9183839BFD0F40049D8A72F /* DistanceCalibrationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C7508DF1D254AAC2148091E /* DistanceCalibrationView.swift */; };
 		D5831BB9B1B4A85C7189D9D5 /* MetricDistanceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E09B69867C34B9F596F13E0E /* MetricDistanceTests.swift */; };
 		E6527DFD40084760C5EDFEAA /* AlertPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F28077046EAC0EFA7F2F583 /* AlertPolicy.swift */; };
+		EC497DF905362C448B36904F /* GlassesVideoDecoderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 431E7E43F4EB735AA497C6A0 /* GlassesVideoDecoderTests.swift */; };
 		ECBBCEF7FC2F9F4EBB4ABD3A /* CameraLifecyclePolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B855B6D35A156BAD5D646BF /* CameraLifecyclePolicy.swift */; };
 /* End PBXBuildFile section */
 
@@ -59,10 +62,12 @@
 		32001EDD2F139DA2770009E6 /* ISeeYouApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ISeeYouApp.swift; sourceTree = "<group>"; };
 		3BD40B7849A3797D5F19112B /* CameraScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraScreen.swift; sourceTree = "<group>"; };
 		424945874503F6B65D68CE61 /* CameraLifecycleTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraLifecycleTests.swift; sourceTree = "<group>"; };
+		431E7E43F4EB735AA497C6A0 /* GlassesVideoDecoderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlassesVideoDecoderTests.swift; sourceTree = "<group>"; };
 		5861F32A9B8B6F58AE468FE4 /* CameraStartupUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraStartupUITests.swift; sourceTree = "<group>"; };
 		58E33C8F482B8B7DAEE6295D /* StableExplanationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StableExplanationTests.swift; sourceTree = "<group>"; };
 		7F28077046EAC0EFA7F2F583 /* AlertPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AlertPolicy.swift; sourceTree = "<group>"; };
 		83A8FA7B540E7FEE73AA20DB /* CameraEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraEngine.swift; sourceTree = "<group>"; };
+		99A73CE4E77AB13F60B884A6 /* GlassesVideoDecoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlassesVideoDecoder.swift; sourceTree = "<group>"; };
 		9B855B6D35A156BAD5D646BF /* CameraLifecyclePolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraLifecyclePolicy.swift; sourceTree = "<group>"; };
 		A4E5DF81288392CEECE248C1 /* MetaGlassesSource.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetaGlassesSource.swift; sourceTree = "<group>"; };
 		A94A010CFD8FB909BA10119E /* AudioOutputPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioOutputPicker.swift; sourceTree = "<group>"; };
@@ -73,6 +78,7 @@
 		DDE3EA24702F375E2633F80D /* HazardAssessment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HazardAssessment.swift; sourceTree = "<group>"; };
 		E09B69867C34B9F596F13E0E /* MetricDistanceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetricDistanceTests.swift; sourceTree = "<group>"; };
 		E2200A3F9C08AD1B85886AB6 /* ISeeYouUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = ISeeYouUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		E2EDC7408A4D1B4F7C55CF88 /* GlassesSessionDiagnostics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlassesSessionDiagnostics.swift; sourceTree = "<group>"; };
 		EA24844116A0AF544999B99E /* GlassesIntegrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlassesIntegrationTests.swift; sourceTree = "<group>"; };
 		EC7A8EF3C199C543F2596A01 /* UnknownObjectTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UnknownObjectTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -96,6 +102,7 @@
 				424945874503F6B65D68CE61 /* CameraLifecycleTests.swift */,
 				D7196EEBA195DAE7C56F2B1B /* DetectionTests.swift */,
 				EA24844116A0AF544999B99E /* GlassesIntegrationTests.swift */,
+				431E7E43F4EB735AA497C6A0 /* GlassesVideoDecoderTests.swift */,
 				E09B69867C34B9F596F13E0E /* MetricDistanceTests.swift */,
 				58E33C8F482B8B7DAEE6295D /* StableExplanationTests.swift */,
 				EC7A8EF3C199C543F2596A01 /* UnknownObjectTests.swift */,
@@ -142,6 +149,8 @@
 				B3D6E97F8AE72201F61A278D /* Detection.swift */,
 				18C1253FFE89CD39E57072C5 /* DistanceCalibration.swift */,
 				2C7508DF1D254AAC2148091E /* DistanceCalibrationView.swift */,
+				E2EDC7408A4D1B4F7C55CF88 /* GlassesSessionDiagnostics.swift */,
+				99A73CE4E77AB13F60B884A6 /* GlassesVideoDecoder.swift */,
 				DDE3EA24702F375E2633F80D /* HazardAssessment.swift */,
 				07F933631D2672B8D64023DD /* Info.plist */,
 				32001EDD2F139DA2770009E6 /* ISeeYouApp.swift */,
@@ -286,6 +295,8 @@
 				0CEA0F598CFA1C302F30B6BC /* Detection.swift in Sources */,
 				C62C5F845574042624FD4BF6 /* DistanceCalibration.swift in Sources */,
 				C9183839BFD0F40049D8A72F /* DistanceCalibrationView.swift in Sources */,
+				BCE03D81011A2D8BF2096D10 /* GlassesSessionDiagnostics.swift in Sources */,
+				A56B2EF436D7AA7D3E4DCD6E /* GlassesVideoDecoder.swift in Sources */,
 				B1465570EC3A04CC6380A731 /* HazardAssessment.swift in Sources */,
 				65AF24B3530A082E638CFBEA /* ISeeYouApp.swift in Sources */,
 				658BFA5CFF6022FBB918429D /* MetaGlassesSource.swift in Sources */,
@@ -302,6 +313,7 @@
 				3F1F95DC3742BF74FF86E0F8 /* CameraLifecycleTests.swift in Sources */,
 				116AB28A72B98C8A921EE0C6 /* DetectionTests.swift in Sources */,
 				1E47644AFD5660AC23B7E1A0 /* GlassesIntegrationTests.swift in Sources */,
+				EC497DF905362C448B36904F /* GlassesVideoDecoderTests.swift in Sources */,
 				D5831BB9B1B4A85C7189D9D5 /* MetricDistanceTests.swift in Sources */,
 				16D684AC304958B28E29DBB4 /* StableExplanationTests.swift in Sources */,
 				2E385A27C4F1C301F893B440 /* UnknownObjectTests.swift in Sources */,

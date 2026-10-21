@@ -111,6 +111,7 @@ final class CameraEngine: NSObject, ObservableObject, AVCaptureVideoDataOutputSa
     func sceneChanged(active: Bool, background: Bool) {
         appActive = active
         visibilityLock.withLock { foreground = active }
+        if cameraSource == .glasses { GlassesSessionDiagnostics.record(["foreground": active, "background": background]) }
         // The iOS permission alert makes the scene inactive. Preserve that
         // explicit start request; a real background transition still cancels it.
         if CameraLifecyclePolicy.shouldStop(active: active, background: background, permissionPending: permissionPending,
@@ -172,8 +173,8 @@ final class CameraEngine: NSObject, ObservableObject, AVCaptureVideoDataOutputSa
             frameCount = 0; windowStart = CACurrentMediaTime()
             DispatchQueue.main.async {
                 guard self.wantsRunning, self.generation == lease else { return }
-                self.glasses.start(onFrame: { [weak self] sample in
-                    self?.enqueueGlassesFrame(sample, lease: lease)
+                self.glasses.start(onFrame: { [weak self] sample, receivedAt in
+                    self?.enqueueGlassesFrame(sample, lease: lease, receivedAt: receivedAt)
                 }, onState: { [weak self] active, message in
                     guard let self, self.generation == lease else { return }
                     if !active { self.stop(reason: message); return }
@@ -182,8 +183,7 @@ final class CameraEngine: NSObject, ObservableObject, AVCaptureVideoDataOutputSa
             }
         }
     }
-    private func enqueueGlassesFrame(_ sample: CMSampleBuffer, lease: UUID) {
-        let receivedAt = CACurrentMediaTime()
+    private func enqueueGlassesFrame(_ sample: CMSampleBuffer, lease: UUID, receivedAt: TimeInterval) {
         guard generation == lease, externalFrameGate.begin() else { return }
         inferenceQueue.async { [self] in
             defer { externalFrameGate.end() }
