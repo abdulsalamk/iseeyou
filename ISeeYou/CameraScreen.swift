@@ -4,12 +4,24 @@ import AVFoundation
 struct CameraScreen: View {
     @StateObject private var engine = CameraEngine()
     @StateObject private var calibration = DistanceCalibration()
+    @StateObject private var glassesCalibration = DistanceCalibration(url: FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0].appendingPathComponent("distance-calibration-glasses.json"))
+    private var activeCalibration: DistanceCalibration { engine.cameraSource == .glasses ? glassesCalibration : calibration }
     @Environment(\.scenePhase) private var scenePhase
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 Text("I See You").font(.largeTitle.bold())
                 Text("OBJECT DETECTION • RESEARCH POC").font(.caption.bold()).foregroundStyle(.secondary)
+                Picker("Camera source", selection: $engine.cameraSource) {
+                    ForEach(CaptureSource.allCases, id: \.self) { Text($0.rawValue).tag($0) }
+                }
+                if engine.cameraSource == .glasses {
+                    Button("Connect Meta glasses") { engine.connectGlasses() }
+                    Button("Allow glasses camera") { engine.allowGlassesCamera() }
+                    TwoLineExplanation(text: engine.glassesStatus).font(.caption)
+                    HStack { Text("Audio output: choose your glasses").font(.caption); AudioOutputPicker().frame(width: 44, height: 44) }
+                    Text("Wear and open your glasses. This development build requires Developer Mode in the Meta companion app. Camera and speech still stop when I See You goes into the background.").font(.caption)
+                }
                 Button(engine.starting ? "Cancel camera startup" : (engine.running ? "Stop camera" : "Start camera")) {
                     if engine.running || engine.starting { engine.stop() } else { engine.start() }
                 }.buttonStyle(.borderedProminent).accessibilityIdentifier("cameraToggle")
@@ -24,7 +36,9 @@ struct CameraScreen: View {
                 TwoLineExplanation(text: engine.status).font(.callout).accessibilityIdentifier("cameraStatus")
                 Text("Received video frames: \(engine.receivedFrames)").font(.caption.monospacedDigit()).accessibilityIdentifier("cameraFrames")
                 ZStack {
-                    CameraPreview(session: engine.session)
+                    if engine.cameraSource == .phone { CameraPreview(session: engine.session) }
+                    else if let image = engine.glassesPreview { Image(uiImage: image).resizable().scaledToFit() }
+                    else { Color.black }
                     GeometryReader { proxy in
                         Rectangle().fill(.yellow.opacity(0.1))
                             .overlay(Rectangle().stroke(.yellow.opacity(0.7), style: StrokeStyle(lineWidth: 1, dash: [6])))
@@ -46,7 +60,7 @@ struct CameraScreen: View {
                                 .frame(width: rect.width, height: rect.height)
                                 .overlay(alignment: .topLeading) {
                                     Text("\(detection.label) · confidence \(Int(detection.confidence * 100))%" + (detection.distance.map {
-                                        String(format: "\n~%.1f m (unverified)", $0.metres * (calibration.profile.scale ?? 1))
+                                        String(format: "\n~%.1f m (unverified)", $0.metres * (activeCalibration.profile.scale ?? 1))
                                     } ?? "\nDistance unavailable"))
                                         .font(.caption2.bold()).padding(3).background(.black.opacity(0.8)).foregroundStyle(.white)
                                 }
@@ -55,7 +69,7 @@ struct CameraScreen: View {
                     }.clipped().accessibilityHidden(true)
                 }
                 // Portrait 720p buffers and aspect-fit preview share exactly the same rectangle.
-                .aspectRatio(9.0 / 16.0, contentMode: .fit)
+                .aspectRatio(engine.previewAspectRatio, contentMode: .fit)
                 .background(.black).clipShape(RoundedRectangle(cornerRadius: 16))
                 let central = Set(engine.detections.filter(\.inPath).map(\.label)).sorted()
                 TwoLineExplanation(text: engine.running && engine.fps > 0
@@ -65,12 +79,12 @@ struct CameraScreen: View {
                 HStack {
                     metric("FPS", String(format: "%.1f", engine.fps))
                     metric("Inference", String(format: "%.0f ms", engine.inferenceMS))
-                    metric("Frame age", String(format: "%.0f ms", engine.frameAgeMS))
+                    metric(engine.cameraSource == .glasses ? "Since delivery" : "Frame age", String(format: "%.0f ms", engine.frameAgeMS))
                 }
                 Text("Thermal: \(engine.thermal)").font(.caption)
                 TwoLineExplanation(text: engine.distanceStatus).font(.caption)
                 DisclosureGroup("Measure and validate distances") {
-                    DistanceCalibrationView(calibration: calibration, detections: engine.detections,
+                    DistanceCalibrationView(calibration: activeCalibration, detections: engine.detections,
                         frameAgeMS: engine.frameAgeMS, frameDate: engine.lastDistanceFrame)
                 }
                 Text("Central 40% is an approximate image region, not a predicted walking path. Orange boxes overlap it. Detection does not establish whether an object is hazardous.").font(.caption).foregroundStyle(.secondary)
@@ -96,7 +110,10 @@ struct CameraScreen: View {
                     .font(.footnote).foregroundStyle(.secondary)
             }.padding()
         }
-        .onReceive(calibration.$profile) { engine.setCalibration($0) }
+        .onReceive(calibration.$profile) { if engine.cameraSource == .phone { engine.setCalibration($0) } }
+        .onReceive(glassesCalibration.$profile) { if engine.cameraSource == .glasses { engine.setCalibration($0) } }
+        .onChange(of: engine.cameraSource) { _, _ in engine.setCalibration(activeCalibration.profile) }
+        .onOpenURL { engine.handleGlassesCallback($0) }
         .onChange(of: scenePhase) { _, phase in
             #if DEBUG
             print("[ISeeYou.Camera] scenePhase=\(phase)")

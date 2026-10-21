@@ -3,10 +3,32 @@ import Vision
 import CoreML
 import Combine
 import UIKit
+import CoreImage
+
+enum CaptureSource: String, CaseIterable {
+    case phone = "iPhone camera"
+    case glasses = "Meta glasses"
+}
 
 // All session, model and inference operations are serialized off the main thread.
 final class CameraEngine: NSObject, ObservableObject, AVCaptureVideoDataOutputSampleBufferDelegate, @unchecked Sendable {
     let session = AVCaptureSession()
+    @Published var cameraSource: CaptureSource = .phone {
+        didSet {
+            guard cameraSource != oldValue else { return }
+            stop(reason: "Camera source changed. Tap Start when ready.")
+            alerts.requiresBluetoothOutput = cameraSource == .glasses
+        }
+    }
+    @Published private(set) var glassesStatus = "Connect glasses in Developer Mode for this development build."
+    @Published private(set) var glassesPreview: UIImage?
+    @Published private(set) var previewAspectRatio = 9.0 / 16.0
+    private let glasses = MetaGlassesSource()
+    private let externalFrameGate = InferenceFrameGate()
+    private let previewContext = CIContext(options: [.cacheIntermediates: false])
+    func connectGlasses() { glasses.connect() }
+    func allowGlassesCamera() { glasses.authorizeCamera() }
+    func handleGlassesCallback(_ url: URL) { glasses.handleCallback(url) }
     private let queue = DispatchQueue(label: "iseeyou.camera", qos: .userInitiated)
     private let inferenceQueue = DispatchQueue(label: "iseeyou.inference", qos: .userInitiated)
     @Published private(set) var detections: [Detection] = []
@@ -69,6 +91,7 @@ final class CameraEngine: NSObject, ObservableObject, AVCaptureVideoDataOutputSa
 
     override init() {
         super.init()
+        glasses.onSetupStatus = { [weak self] message in self?.glassesStatus = message }
         alerts.statusChanged = { [weak self] status in self?.voiceStatus = status }
         cameraLog("initial authorization=\(AVCaptureDevice.authorizationStatus(for: .video).rawValue)")
         observers.append(NotificationCenter.default.addObserver(forName: AVCaptureSession.runtimeErrorNotification, object: session, queue: .main) { [weak self] notification in
@@ -108,8 +131,9 @@ final class CameraEngine: NSObject, ObservableObject, AVCaptureVideoDataOutputSa
         wantsRunning = true
         starting = true
         receivedFrames = 0
-        status = "Starting rear camera…"
+        status = cameraSource == .phone ? "Starting rear camera…" : "Starting Meta glasses camera…"
         generation = UUID()
+        if cameraSource == .glasses { launchGlasses(); return }
         switch AVCaptureDevice.authorizationStatus(for: .video) {
         case .authorized: launch()
         case .notDetermined:
@@ -129,6 +153,39 @@ final class CameraEngine: NSObject, ObservableObject, AVCaptureVideoDataOutputSa
         }
     }
 
+    private func launchGlasses() {
+        let lease = generation
+        inferenceQueue.async { [self] in
+            guard generation == lease else { return }
+            do {
+                if request == nil { try loadModel() }
+                if depthEstimator == nil { depthEstimator = try MetricDepthEstimator() }
+            } catch {
+                cameraLog("Glasses model preparation: " + error.localizedDescription)
+            }
+            frameCount = 0; windowStart = CACurrentMediaTime()
+            DispatchQueue.main.async {
+                guard self.wantsRunning, self.generation == lease else { return }
+                self.glasses.start(onFrame: { [weak self] sample in
+                    self?.enqueueGlassesFrame(sample, lease: lease)
+                }, onState: { [weak self] active, message in
+                    guard let self, self.generation == lease else { return }
+                    if !active { self.stop(reason: message); return }
+                    self.running = true; self.starting = false; self.status = message
+                })
+            }
+        }
+    }
+    private func enqueueGlassesFrame(_ sample: CMSampleBuffer, lease: UUID) {
+        let receivedAt = CACurrentMediaTime()
+        guard generation == lease, externalFrameGate.begin() else { return }
+        inferenceQueue.async { [self] in
+            defer { externalFrameGate.end() }
+            guard generation == lease else { return }
+            processFrame(sample, lease: lease, external: true, receivedAt: receivedAt)
+        }
+    }
+
     private func deny() {
         wantsRunning = false
         starting = false
@@ -139,6 +196,7 @@ final class CameraEngine: NSObject, ObservableObject, AVCaptureVideoDataOutputSa
 
     private func launch() {
         denied = false
+        previewAspectRatio = 9.0 / 16.0
         let lease = generation
         queue.async { [self] in
             guard generation == lease else { return }
@@ -244,6 +302,9 @@ final class CameraEngine: NSObject, ObservableObject, AVCaptureVideoDataOutputSa
         status = reason
         generation = UUID()
         running = false
+        glasses.stop()
+        glassesPreview = nil
+        previewAspectRatio = 9.0 / 16.0
         detections = []
         lastDistanceFrame = .distantPast
         distanceStatus = "Distance: camera stopped"
@@ -286,8 +347,19 @@ final class CameraEngine: NSObject, ObservableObject, AVCaptureVideoDataOutputSa
     }
 
     func captureOutput(_ output: AVCaptureOutput, didOutput sampleBuffer: CMSampleBuffer, from connection: AVCaptureConnection) {
-        let lease = generation
-        guard let buffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
+        processFrame(sampleBuffer, lease: generation, external: false)
+    }
+    private func processFrame(_ sampleBuffer: CMSampleBuffer, lease: UUID, external: Bool, receivedAt: TimeInterval? = nil) {
+        guard generation == lease, let buffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
+        if external {
+            let image = CIImage(cvPixelBuffer: buffer)
+            let preview = previewContext.createCGImage(image, from: image.extent).map { UIImage(cgImage: $0) }
+            let ratio = Double(CVPixelBufferGetWidth(buffer)) / Double(CVPixelBufferGetHeight(buffer))
+            DispatchQueue.main.async {
+                guard self.wantsRunning, self.generation == lease else { return }
+                self.glassesPreview = preview; self.previewAspectRatio = ratio
+            }
+        }
         #if DEBUG
         if imageLogGeneration != lease { imageLogGeneration = lease; imageLogCount = 0 }
         imageLogCount += 1
@@ -330,7 +402,16 @@ final class CameraEngine: NSObject, ObservableObject, AVCaptureVideoDataOutputSa
             }
             #endif
             let timestamp = CMSampleBufferGetPresentationTimeStamp(sampleBuffer).seconds
-            let age = max(0, CMClockGetTime(CMClockGetHostTimeClock()).seconds - timestamp) * 1000
+            let hostAge = CMClockGetTime(CMClockGetHostTimeClock()).seconds - timestamp
+            // DAT timestamps are not in the iPhone host clock domain. For
+            // experimental descriptions measure local delivery-to-result time;
+            // this does not establish glasses capture or transport latency.
+            let age: Double
+            if external, let receivedAt {
+                age = max(0, end - receivedAt) * 1000
+            } else {
+                age = timestamp.isFinite && hostAge >= -0.05 ? max(0, hostAge) * 1000 : Double.infinity
+            }
             frameCount += 1
             let elapsed = end - windowStart
             let rate = Double(frameCount) / max(elapsed, 0.001)

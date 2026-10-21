@@ -8,6 +8,7 @@ protocol SpeechAlerting: AnyObject {
 // Used exclusively on the main thread. Never queues a backlog of stale guidance.
 final class SpeechAlertService: NSObject, SpeechAlerting, AVSpeechSynthesizerDelegate {
     private let synthesizer = AVSpeechSynthesizer()
+    var requiresBluetoothOutput = false
     var onStatus: ((String) -> Void)?
     override init() {
         super.init()
@@ -20,6 +21,13 @@ final class SpeechAlertService: NSObject, SpeechAlerting, AVSpeechSynthesizerDel
             let audio = AVAudioSession.sharedInstance()
             try audio.setCategory(.playback, mode: .spokenAudio, options: [.duckOthers])
             try audio.setActive(true)
+            if requiresBluetoothOutput && !audio.currentRoute.outputs.contains(where: {
+                [.bluetoothA2DP, .bluetoothHFP, .bluetoothLE].contains($0.portType)
+            }) {
+                report("Select your glasses in Audio output before speaking.")
+                try? audio.setActive(false, options: .notifyOthersOnDeactivation)
+                return
+            }
             synthesizer.usesApplicationAudioSession = true
             let utterance = AVSpeechUtterance(string: alert.message)
             utterance.voice = AVSpeechSynthesisVoice(language: "en-GB") ?? AVSpeechSynthesisVoice(language: "en-US")
@@ -57,6 +65,10 @@ final class HazardAlertController {
     private var interruptionObserver: NSObjectProtocol?
     private var interrupted = false
     private var wasEnabled = false
+    var requiresBluetoothOutput: Bool {
+        get { (speech as? SpeechAlertService)?.requiresBluetoothOutput ?? false }
+        set { (speech as? SpeechAlertService)?.requiresBluetoothOutput = newValue }
+    }
     var statusChanged: ((String) -> Void)?
     init(policy: any AlertPolicyApplying = AlertPolicy(), speech: any SpeechAlerting = SpeechAlertService()) {
         self.policy = policy

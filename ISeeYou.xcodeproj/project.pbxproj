@@ -7,14 +7,19 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		035DF8304AF26BFD9152350E /* MWDATCamera in Frameworks */ = {isa = PBXBuildFile; productRef = D09B4074685F6B0F2610D828 /* MWDATCamera */; };
 		0CEA0F598CFA1C302F30B6BC /* Detection.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3D6E97F8AE72201F61A278D /* Detection.swift */; };
 		10E79A33C7A472F2DC20404D /* CameraScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3BD40B7849A3797D5F19112B /* CameraScreen.swift */; };
 		116AB28A72B98C8A921EE0C6 /* DetectionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7196EEBA195DAE7C56F2B1B /* DetectionTests.swift */; };
 		16D684AC304958B28E29DBB4 /* StableExplanationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58E33C8F482B8B7DAEE6295D /* StableExplanationTests.swift */; };
+		1E47644AFD5660AC23B7E1A0 /* GlassesIntegrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA24844116A0AF544999B99E /* GlassesIntegrationTests.swift */; };
+		1FC16A3F42BB7B98C752FACD /* MWDATCore in Frameworks */ = {isa = PBXBuildFile; productRef = 109B586DF8D491684F65674D /* MWDATCore */; };
 		2E385A27C4F1C301F893B440 /* UnknownObjectTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EC7A8EF3C199C543F2596A01 /* UnknownObjectTests.swift */; };
 		3F1F95DC3742BF74FF86E0F8 /* CameraLifecycleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 424945874503F6B65D68CE61 /* CameraLifecycleTests.swift */; };
 		4E649F691FE56EE101F80B61 /* CameraEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83A8FA7B540E7FEE73AA20DB /* CameraEngine.swift */; };
+		658BFA5CFF6022FBB918429D /* MetaGlassesSource.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4E5DF81288392CEECE248C1 /* MetaGlassesSource.swift */; };
 		65AF24B3530A082E638CFBEA /* ISeeYouApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 32001EDD2F139DA2770009E6 /* ISeeYouApp.swift */; };
+		6CE4B5A87531C1B43C16F7A6 /* AudioOutputPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = A94A010CFD8FB909BA10119E /* AudioOutputPicker.swift */; };
 		8739CD2CB5D19101793CB727 /* SpeechAlertService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 24B20B9A4C1677D141AC6D05 /* SpeechAlertService.swift */; };
 		A05C871FD973BC3BF194D5EB /* StableExplanations.swift in Sources */ = {isa = PBXBuildFile; fileRef = C37037D7BDFF5E098A5316E5 /* StableExplanations.swift */; };
 		AE312A7033320F1DE7B69A92 /* CameraStartupUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5861F32A9B8B6F58AE468FE4 /* CameraStartupUITests.swift */; };
@@ -59,6 +64,8 @@
 		7F28077046EAC0EFA7F2F583 /* AlertPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AlertPolicy.swift; sourceTree = "<group>"; };
 		83A8FA7B540E7FEE73AA20DB /* CameraEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraEngine.swift; sourceTree = "<group>"; };
 		9B855B6D35A156BAD5D646BF /* CameraLifecyclePolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraLifecyclePolicy.swift; sourceTree = "<group>"; };
+		A4E5DF81288392CEECE248C1 /* MetaGlassesSource.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetaGlassesSource.swift; sourceTree = "<group>"; };
+		A94A010CFD8FB909BA10119E /* AudioOutputPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioOutputPicker.swift; sourceTree = "<group>"; };
 		B3D6E97F8AE72201F61A278D /* Detection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Detection.swift; sourceTree = "<group>"; };
 		C37037D7BDFF5E098A5316E5 /* StableExplanations.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StableExplanations.swift; sourceTree = "<group>"; };
 		D7196EEBA195DAE7C56F2B1B /* DetectionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DetectionTests.swift; sourceTree = "<group>"; };
@@ -66,8 +73,21 @@
 		DDE3EA24702F375E2633F80D /* HazardAssessment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HazardAssessment.swift; sourceTree = "<group>"; };
 		E09B69867C34B9F596F13E0E /* MetricDistanceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetricDistanceTests.swift; sourceTree = "<group>"; };
 		E2200A3F9C08AD1B85886AB6 /* ISeeYouUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = ISeeYouUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		EA24844116A0AF544999B99E /* GlassesIntegrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlassesIntegrationTests.swift; sourceTree = "<group>"; };
 		EC7A8EF3C199C543F2596A01 /* UnknownObjectTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UnknownObjectTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		D910A176161769D04069070F /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1FC16A3F42BB7B98C752FACD /* MWDATCore in Frameworks */,
+				035DF8304AF26BFD9152350E /* MWDATCamera in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
 		0CD1DBE0C31DBF1BA5CADD65 /* ISeeYouTests */ = {
@@ -75,6 +95,7 @@
 			children = (
 				424945874503F6B65D68CE61 /* CameraLifecycleTests.swift */,
 				D7196EEBA195DAE7C56F2B1B /* DetectionTests.swift */,
+				EA24844116A0AF544999B99E /* GlassesIntegrationTests.swift */,
 				E09B69867C34B9F596F13E0E /* MetricDistanceTests.swift */,
 				58E33C8F482B8B7DAEE6295D /* StableExplanationTests.swift */,
 				EC7A8EF3C199C543F2596A01 /* UnknownObjectTests.swift */,
@@ -114,6 +135,7 @@
 			isa = PBXGroup;
 			children = (
 				7F28077046EAC0EFA7F2F583 /* AlertPolicy.swift */,
+				A94A010CFD8FB909BA10119E /* AudioOutputPicker.swift */,
 				83A8FA7B540E7FEE73AA20DB /* CameraEngine.swift */,
 				9B855B6D35A156BAD5D646BF /* CameraLifecyclePolicy.swift */,
 				3BD40B7849A3797D5F19112B /* CameraScreen.swift */,
@@ -123,6 +145,7 @@
 				DDE3EA24702F375E2633F80D /* HazardAssessment.swift */,
 				07F933631D2672B8D64023DD /* Info.plist */,
 				32001EDD2F139DA2770009E6 /* ISeeYouApp.swift */,
+				A4E5DF81288392CEECE248C1 /* MetaGlassesSource.swift */,
 				1640F8AD5DBE70556ACE3D93 /* MetricDepthEstimator.swift */,
 				24B20B9A4C1677D141AC6D05 /* SpeechAlertService.swift */,
 				C37037D7BDFF5E098A5316E5 /* StableExplanations.swift */,
@@ -138,6 +161,7 @@
 			buildConfigurationList = 220EDA9FE22A23C122933047 /* Build configuration list for PBXNativeTarget "ISeeYou" */;
 			buildPhases = (
 				64AD8DFCF705EFF8C835FCA4 /* Sources */,
+				D910A176161769D04069070F /* Frameworks */,
 				C2209BCEAD2D64E3DA519E5A /* Compile optional YOLO11n model */,
 			);
 			buildRules = (
@@ -146,6 +170,8 @@
 			);
 			name = ISeeYou;
 			packageProductDependencies = (
+				109B586DF8D491684F65674D /* MWDATCore */,
+				D09B4074685F6B0F2610D828 /* MWDATCamera */,
 			);
 			productName = ISeeYou;
 			productReference = DD308043EA899FBA5CD7843B /* ISeeYou.app */;
@@ -210,6 +236,9 @@
 			);
 			mainGroup = 391B32E48EC158F4F109E980;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				FA9371BE5B01D169D4692516 /* XCRemoteSwiftPackageReference "meta-wearables-dat-ios" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 4C49299B59CF788F9F515D3F /* Products */;
 			projectDirPath = "";
@@ -250,6 +279,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				E6527DFD40084760C5EDFEAA /* AlertPolicy.swift in Sources */,
+				6CE4B5A87531C1B43C16F7A6 /* AudioOutputPicker.swift in Sources */,
 				4E649F691FE56EE101F80B61 /* CameraEngine.swift in Sources */,
 				ECBBCEF7FC2F9F4EBB4ABD3A /* CameraLifecyclePolicy.swift in Sources */,
 				10E79A33C7A472F2DC20404D /* CameraScreen.swift in Sources */,
@@ -258,6 +288,7 @@
 				C9183839BFD0F40049D8A72F /* DistanceCalibrationView.swift in Sources */,
 				B1465570EC3A04CC6380A731 /* HazardAssessment.swift in Sources */,
 				65AF24B3530A082E638CFBEA /* ISeeYouApp.swift in Sources */,
+				658BFA5CFF6022FBB918429D /* MetaGlassesSource.swift in Sources */,
 				C2BD3A884A35258AC18F365C /* MetricDepthEstimator.swift in Sources */,
 				8739CD2CB5D19101793CB727 /* SpeechAlertService.swift in Sources */,
 				A05C871FD973BC3BF194D5EB /* StableExplanations.swift in Sources */,
@@ -270,6 +301,7 @@
 			files = (
 				3F1F95DC3742BF74FF86E0F8 /* CameraLifecycleTests.swift in Sources */,
 				116AB28A72B98C8A921EE0C6 /* DetectionTests.swift in Sources */,
+				1E47644AFD5660AC23B7E1A0 /* GlassesIntegrationTests.swift in Sources */,
 				D5831BB9B1B4A85C7189D9D5 /* MetricDistanceTests.swift in Sources */,
 				16D684AC304958B28E29DBB4 /* StableExplanationTests.swift in Sources */,
 				2E385A27C4F1C301F893B440 /* UnknownObjectTests.swift in Sources */,
@@ -385,7 +417,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.2;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
@@ -513,7 +545,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.2;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -565,6 +597,30 @@
 			defaultConfigurationName = Debug;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		FA9371BE5B01D169D4692516 /* XCRemoteSwiftPackageReference "meta-wearables-dat-ios" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/facebook/meta-wearables-dat-ios";
+			requirement = {
+				kind = exactVersion;
+				version = 1.0.1;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		109B586DF8D491684F65674D /* MWDATCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = FA9371BE5B01D169D4692516 /* XCRemoteSwiftPackageReference "meta-wearables-dat-ios" */;
+			productName = MWDATCore;
+		};
+		D09B4074685F6B0F2610D828 /* MWDATCamera */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = FA9371BE5B01D169D4692516 /* XCRemoteSwiftPackageReference "meta-wearables-dat-ios" */;
+			productName = MWDATCamera;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = F5465D63FFFB250FC6D8DB70 /* Project object */;
 }
