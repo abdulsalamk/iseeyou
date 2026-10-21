@@ -87,13 +87,6 @@ struct CameraScreen: View {
                     .font(.footnote).foregroundStyle(.secondary)
             }.padding()
         }
-        .onAppear {
-            #if DEBUG
-            if ProcessInfo.processInfo.arguments.contains("--camera-startup-diagnostic") {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 1) { engine.start() }
-            }
-            #endif
-        }
         .onChange(of: scenePhase) { _, phase in
             #if DEBUG
             print("[ISeeYou.Camera] scenePhase=\(phase)")

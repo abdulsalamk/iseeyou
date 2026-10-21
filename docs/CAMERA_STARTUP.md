@@ -13,7 +13,7 @@ Code inspection identified concrete startup weaknesses: detector loading precede
 - Separate capture-control and inference queues; remove inference's synchronous main-thread wait and use a locked lifecycle generation token.
 - Preserve pending camera permission requests across transient inactivity, but stop on actual backgrounding or ordinary inactivity.
 - Surface session runtime errors and interruptions with retry guidance.
-- Debug-only, metadata-only startup and preview-layer diagnostics. No camera images are saved. `--camera-startup-diagnostic` deliberately invokes the same Start action after launch; ordinary launches still require Start.
+- Debug-only, metadata-only startup and preview-layer logging. No camera images are saved. The temporary auto-start diagnostic launch path was removed: launch and foreground return never invoke Start. Only the explicit Start button requests capture.
 
 ## Checks and limits
 
@@ -23,3 +23,7 @@ Code inspection identified concrete startup weaknesses: detector loading precede
 - Corrected runtime: authorized permission, `session.isRunning == true`, `isInterrupted == false`, preview-layer `isPreviewing == true`, detector ready, and a received video frame were confirmed in device console output. This is functional device telemetry, not a claim that a human inspected the live picture.
 - An on-phone UI test was added to tap Start, verify frames, stop and restart. It could not run: the Mac lacks an Apple developer account/provisioning profile for `com.iseeyou.ISeeYouUITests.xctrunner`. App signing/install uses the existing app profile and succeeds. No passing UI-test result is claimed.
 - First-use permission UI, runtime-error recovery and the actual Start button still need manual confirmation; existing authorization was not revoked for testing.
+
+## Manual-only launch correction
+
+The earlier functional diagnostic used a launch argument to start capture automatically; the user explicitly rejected that behaviour. The auto-start code path was removed completely. The app is subsequently installed and launched without such an argument. Foreground return does not start capture. The permission-completion path only continues an existing explicit Start tap, never a new launch.
