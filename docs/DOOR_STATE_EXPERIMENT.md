@@ -37,4 +37,6 @@ A dedicated door localisation/state model trained with representative data remai
 
 ## Current verification status
 
-The first physical-device run executed 44 checks: the model smoke test and blank-image abstention passed; 43 checks passed overall and a consensus timing-boundary assertion failed due to floating-point representation of 3.8 minus 3.0. A one-microsecond comparison tolerance fixes that boundary, and a native compiled policy check using the production source passes. The final full iPhone rerun is blocked by the locked phone and was cancelled to avoid an unattended test launch later. The new door build has not yet been installed; unlock the phone and rerun the checks before installation. No claim of 44 passing device tests or real-door accuracy is made yet.
+All **44 tests passed on Salam’s physical iPhone 15 Pro** after the phone was unlocked. These include model inference and blank-image abstention, ambiguous/non-door score rejection, repeated/fresh state confirmation, tentative spoken wording, and existing camera/depth/glasses checks. A one-microsecond comparison tolerance handles floating-point timing boundaries. The normal development-signed build was installed successfully after this passing run.
+
+This is code and model-runtime validation, not a real-door accuracy result. Phone/glasses door-state evaluation and the deferred locked-phone glasses check remain outstanding. The compiled development build occupies about 155 MiB on the Mac; the exact iOS storage total can differ.
