@@ -10,12 +10,20 @@ final class DoorSceneTests: XCTestCase {
     }
     func testAmbiguityAndNonDoorScenesAbstain() {
         for scores in [
-            ["closed": 0.35, "open": 0.34, "partlyOpen": 0.3, "wall": 0.2],
             ["closed": 0.35, "open": 0.25, "partlyOpen": 0.2, "wall": 0.4],
             ["closed": 0.15, "open": 0.1, "partlyOpen": 0.1, "wall": 0.05],
             ["closed": Double.nan, "open": 0.4, "partlyOpen": 0.2, "wall": 0.1],
             ["open": 0.9],
         ] { XCTAssertEqual(DoorSceneScoring.decide(scores), .uncertain) }
+    }
+    func testDoorPresenceDoesNotInventAStateWhenStatesAreClose() {
+        XCTAssertEqual(DoorSceneScoring.decide(["closed": 0.35, "open": 0.34, "partlyOpen": 0.3, "wall": 0.2]), .stateUncertain)
+        XCTAssertEqual(DoorSceneScoring.decide(["closed": 0.35, "open": 0.34, "partlyOpen": 0.3, "wall": 0.34]), .uncertain)
+        XCTAssertEqual(DoorVisualState.stateUncertain.message, "Possible door. Open or closed uncertain.")
+        var consensus = DoorStateConsensus()
+        XCTAssertNil(consensus.update(.stateUncertain, at: 0))
+        XCTAssertNil(consensus.update(.stateUncertain, at: 0.4))
+        XCTAssertEqual(consensus.update(.stateUncertain, at: 0.8), .stateUncertain)
     }
     func testConsensusRequiresRepeatedFreshConsistentObservations() {
         var consensus = DoorStateConsensus()
@@ -37,7 +45,7 @@ final class DoorSceneTests: XCTestCase {
         let controller = HazardAlertController(speech: speech)
         controller.speakDoorAssessment(.open)
         controller.speakDoorAssessment(.uncertain)
-        XCTAssertEqual(speech.messages, ["Door may be open. Opening not verified.", "Door state uncertain."])
+        XCTAssertEqual(speech.messages, ["Door may be open. Opening not verified.", "Door not established. State uncertain."])
     }
     func testBundledDoorModelRunsAndBlankImagesDoNotBecomeDoors() throws {
         let classifier = try DoorSceneClassifier()

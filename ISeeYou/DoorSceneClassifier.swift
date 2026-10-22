@@ -3,13 +3,14 @@ import CoreML
 import CoreImage
 
 enum DoorVisualState: String, CaseIterable {
-    case open, partlyOpen, closed, uncertain
+    case open, partlyOpen, closed, stateUncertain, uncertain
     var message: String {
         switch self {
         case .open: return "Door may be open. Opening not verified."
         case .partlyOpen: return "Door may be partly open."
         case .closed: return "Door may be closed."
-        case .uncertain: return "Door state uncertain."
+        case .stateUncertain: return "Possible door. Open or closed uncertain."
+        case .uncertain: return "Door not established. State uncertain."
         }
     }
 }
@@ -26,8 +27,8 @@ enum DoorSceneScoring {
         let runnerUp = scores[ranked[1].rawValue]!
         let negatives = scores.filter { !states.map(\.rawValue).contains($0.key) }.map(\.value)
         guard let nonDoor = negatives.max(), best >= 0.25,
-              best - nonDoor >= 0.025, best - runnerUp >= 0.03 else { return .uncertain }
-        return ranked[0]
+              best - nonDoor >= 0.025 else { return .uncertain }
+        return best - runnerUp >= 0.03 ? ranked[0] : .stateUncertain
     }
 }
 
@@ -44,6 +45,17 @@ struct DoorStateConsensus {
         last = time; count += 1
         guard count >= 3, time - first! + 0.000001 >= 0.8 else { return nil }
         return next
+    }
+}
+
+struct DoorSceneAssessment {
+    let state: DoorVisualState
+    let scores: [String: Double]
+    var diagnostic: String {
+        let ranked = scores.sorted { $0.value > $1.value }
+        return "Scene comparison (not confidence percentages): " + ranked.prefix(4).map {
+            String(format: "%@ %.3f", $0.key, $0.value)
+        }.joined(separator: "; ")
     }
 }
 
@@ -72,6 +84,9 @@ final class DoorSceneClassifier {
               }) else { throw Self.failure("Door prompt embeddings do not match the image model.") }
     }
     func assess(_ buffer: CVPixelBuffer) throws -> DoorVisualState {
+        try assessDetailed(buffer).state
+    }
+    func assessDetailed(_ buffer: CVPixelBuffer) throws -> DoorSceneAssessment {
         let source = CIImage(cvPixelBuffer: buffer)
         let side = min(source.extent.width, source.extent.height)
         let crop = CGRect(x: source.extent.midX - side / 2, y: source.extent.midY - side / 2,
@@ -89,16 +104,16 @@ final class DoorSceneClassifier {
         guard let embedding = output.featureValue(for: "imageEmbedding")?.multiArrayValue,
               embedding.count == 512 else { throw Self.failure("Unexpected door image embedding.") }
         let values = (0..<512).map { embedding[$0].doubleValue }
-        guard values.allSatisfy(\.isFinite) else { return .uncertain }
+        guard values.allSatisfy(\.isFinite) else { return DoorSceneAssessment(state: .uncertain, scores: [:]) }
         let norm = sqrt(values.reduce(0) { $0 + $1 * $1 })
-        guard norm > 0 else { return .uncertain }
+        guard norm > 0 else { return DoorSceneAssessment(state: .uncertain, scores: [:]) }
         var scores: [String: Double] = [:]
         for group in bank.groups {
             let groupNorm = sqrt(group.embedding.reduce(0) { $0 + $1 * $1 })
-            guard groupNorm > 0 else { return .uncertain }
+            guard groupNorm > 0 else { return DoorSceneAssessment(state: .uncertain, scores: [:]) }
             scores[group.label] = zip(values, group.embedding).reduce(0) { $0 + $1.0 * $1.1 } / (norm * groupNorm)
         }
-        return DoorSceneScoring.decide(scores)
+        return DoorSceneAssessment(state: DoorSceneScoring.decide(scores), scores: scores)
     }
     private static func failure(_ text: String) -> NSError {
         NSError(domain: "DoorSceneClassifier", code: 1, userInfo: [NSLocalizedDescriptionKey: text])

@@ -5,13 +5,13 @@ This is an on-device **zero-shot scene comparison**, not a door-specific trained
 ## Use
 
 1. Start either camera manually.
-2. Expand **Door-state experiment**.
+2. Locate **Check and speak door state**, now visible in the main controls.
 3. Aim the centre of the image at one door and hold still.
 4. Press **Check and speak door state**.
 
-The app collects at least three consistent fresh observations spanning 0.8 seconds. It then speaks a tentative state: "Door may be closed", "Door may be partly open", or "Door may be open. Opening not verified." Ambiguity, missing model input, inconsistent results, a stale image, or an eight-second timeout yields "Door state uncertain". Stop/source changes invalidate pending results. No doorway photograph is stored or transmitted.
+The app collects at least three consistent fresh observations spanning 0.8 seconds. It then speaks a tentative state: "Door may be closed", "Door may be partly open", or "Door may be open. Opening not verified." Ambiguity, missing model input, inconsistent results, a stale image, or an eight-second timeout yields "Door not established. State uncertain.". Stop/source changes invalidate pending results. No doorway photograph is stored or transmitted.
 
-The scene model compares open/partly-open/closed prompts with wall, window, cabinet, mirror, screen, room, and curtain distractors. The provisional gate requires door similarity at least 0.25, separation from the strongest distractor at least 0.025, and separation from the second door state at least 0.03. These cosine similarities and margins are **not calibrated confidence percentages**. The thresholds do not establish real-world accuracy. Classification uses a centre square crop; a door outside the crop may be missed, and a cabinet/window can still be mistaken for a door. No "safe", "go", "path clear", or "unlocked" decision is produced.
+The scene model compares open/partly-open/closed prompts with wall, window, cabinet, mirror, screen, room, and curtain distractors. The provisional gate requires door similarity at least 0.25, separation from the strongest distractor at least 0.025, and separation from the second door state at least 0.03 for a specific state. If the first two gates pass but state separation fails, it says "Possible door. Open or closed uncertain." This does not weaken the thresholds for an open, partly open, or closed result. These cosine similarities and margins are **not calibrated confidence percentages**. The thresholds do not establish real-world accuracy. Classification uses a centre square crop; a door outside the crop may be missed, and a cabinet/window can still be mistaken for a door. No "safe", "go", "path clear", or "unlocked" decision is produced.
 
 ## Model and size
 
@@ -48,3 +48,11 @@ The user reports that a closed door was described generically and that a roughly
 The distance calibration panel now offers an explicit single-point measured correction (reported and measured values; defaults 3 m and 2 m reflecting this report). This saves a multiplicative factor for the selected camera source, with confirmation before clearing old bench samples. It applies consistently to displayed and spoken object/surface distances; a full multi-distance training profile takes precedence once collected. This reference alone cannot pass validation. It is not an automatic subtraction or a verified accuracy improvement.
 
 The follow-up iOS build succeeded. After USB reconnection, all 45 physical-device tests passed (zero failures/skips), including measured-reference scaling, persistence, invalid input rejection and reset. The normal app was installed successfully. The correction remains opt-in in the calibration panel; no real-door recognition or corrected-distance accuracy pass is claimed. Test result: Test-UnitChecks-2026.10.22_09-59-49-+0100.xcresult.
+
+## Door-feedback follow-up
+
+The manual button and fixed two-line result are now outside the collapsed details panel. Door evidence with ambiguous state has its own tentative result, distinct from failure to establish a door. These changes do not retrain CLIP or establish that the user's previously missed closed door will now be recognised.
+
+The details panel shows the four strongest cosine comparisons and local frame age. Stale results still abstain. A timeout and model error are distinguished in diagnostics. The latest completed check is saved to Library/Caches/last-door-check.json (overwritten each check); it contains date, camera source, outcome, score/timing text only, with no image, embedding, video, or audio. The user can also explicitly share the displayed diagnostic text. Existing camera-source calibration is preserved during app updates.
+
+The follow-up iOS build passed and the app installed successfully on the paired iPhone. Native checks compiled the production Swift scoring/consensus source and passed specific-state, ambiguous-state, non-door, invalid-input, and temporal checks. The expanded physical-device XCTest run is still pending phone unlock (the initial run was cancelled at Xcode’s locked-device prompt). The prior 45-test pass applies to the previous build. No real-door recognition or distance-accuracy validation is claimed.

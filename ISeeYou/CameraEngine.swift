@@ -64,6 +64,7 @@ final class CameraEngine: NSObject, ObservableObject, AVCaptureVideoDataOutputSa
     @Published private(set) var centralSurface: ObjectDistance?
     @Published private(set) var doorChecking = false
     @Published private(set) var doorStatus = "Door state not checked"
+    @Published private(set) var doorDiagnostic = "No check yet"
     private var currentDoorCheck: UUID? // main thread
     private var doorRequest: UUID? // inference queue
     private var doorLastInference: TimeInterval = -.infinity
@@ -76,19 +77,29 @@ final class CameraEngine: NSObject, ObservableObject, AVCaptureVideoDataOutputSa
         alerts.reset()
         currentDoorCheck = token; doorChecking = true
         doorStatus = "Checking centre view. Hold still, aimed at one door."
+        doorDiagnostic = "Waiting for a fresh camera frame"
         inferenceQueue.async { [self] in
             guard generation == lease else { return }
             doorRequest = token; doorLastInference = -.infinity; doorConsensus = DoorStateConsensus()
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + 8) { [weak self] in
-            self?.finishDoorCheck(.uncertain, token: token, lease: lease)
+            self?.finishDoorCheck(.uncertain, token: token, lease: lease, note: "Timed out before stable fresh observations")
         }
     }
 
-    private func finishDoorCheck(_ state: DoorVisualState, token: UUID, lease: UUID) {
+    private func finishDoorCheck(_ state: DoorVisualState, token: UUID, lease: UUID, note: String? = nil) {
         guard currentDoorCheck == token, generation == lease, running, wantsRunning else { return }
         currentDoorCheck = nil; doorChecking = false
         doorStatus = state.message + " Experimental scene estimate."
+        if let note { doorDiagnostic += "\n" + note }
+        // Numeric/text diagnostics only: no frame, embedding, or recording is retained.
+        let report: [String: String] = ["date": ISO8601DateFormatter().string(from: Date()),
+            "source": cameraSource.rawValue, "state": state.rawValue, "details": doorDiagnostic]
+        if let data = try? JSONEncoder().encode(report),
+           let cache = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first {
+            try? data.write(to: cache.appendingPathComponent("last-door-check.json"),
+                            options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
+        }
         alerts.speakDoorAssessment(state)
         inferenceQueue.async { [self] in if doorRequest == token { doorRequest = nil } }
     }
@@ -101,9 +112,15 @@ final class CameraEngine: NSObject, ObservableObject, AVCaptureVideoDataOutputSa
         do {
             if doorClassifier == nil { doorClassifier = try DoorSceneClassifier() }
             guard let doorClassifier else { return }
-            let state = try doorClassifier.assess(buffer)
+            let assessment = try doorClassifier.assessDetailed(buffer)
+            let state = assessment.state
             let age = external ? CACurrentMediaTime() - (receivedAt ?? -.infinity)
                 : CMClockGetTime(CMClockGetHostTimeClock()).seconds - CMSampleBufferGetPresentationTimeStamp(sample).seconds
+            let detail = assessment.diagnostic + String(format: "; frame age %.0f ms", age * 1000)
+            DispatchQueue.main.async { [weak self] in
+                guard let self, self.currentDoorCheck == token, self.generation == lease else { return }
+                self.doorDiagnostic = detail
+            }
             // Never carry a stale or queued image into a spoken door result.
             guard age.isFinite, age >= -0.05, age <= 1 else { doorConsensus = DoorStateConsensus(); return }
             guard let stable = doorConsensus.update(state, at: CACurrentMediaTime()) else { return }
@@ -112,7 +129,7 @@ final class CameraEngine: NSObject, ObservableObject, AVCaptureVideoDataOutputSa
         } catch {
             cameraLog("Door check unavailable: " + error.localizedDescription)
             doorRequest = nil
-            DispatchQueue.main.async { [weak self] in self?.finishDoorCheck(.uncertain, token: token, lease: lease) }
+            DispatchQueue.main.async { [weak self] in self?.finishDoorCheck(.uncertain, token: token, lease: lease, note: "Model unavailable: " + error.localizedDescription) }
         }
     }
     @Published private(set) var hazardDecisions: [HazardDecision] = []
