@@ -19,7 +19,6 @@ struct CameraScreen: View {
                     Button("Connect Meta glasses") { engine.connectGlasses() }
                     Button("Allow glasses camera") { engine.allowGlassesCamera() }
                     TwoLineExplanation(text: engine.glassesStatus).font(.caption)
-                    HStack { Text("Audio output: choose your glasses").font(.caption); AudioOutputPicker().frame(width: 44, height: 44) }
                     Text("Wear and open your glasses. Developer Mode is required. Once started, glasses camera and speech can continue with the phone locked. Unlock and tap Stop camera to end the session.").font(.caption)
                 }
                 Button(engine.starting ? "Cancel camera startup" : (engine.running ? "Stop camera" : "Start camera")) {
@@ -29,6 +28,13 @@ struct CameraScreen: View {
                     Button("Open Settings") {
                         if let url = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(url) }
                     }
+                }
+                HStack {
+                    Text("Voice output: choose a Bluetooth device or speaker").font(.caption)
+                    AudioOutputPicker()
+                        .frame(width: 44, height: 44)
+                        .accessibilityLabel("Choose voice audio output")
+                        .accessibilityIdentifier("voiceAudioOutput")
                 }
                 Button("Test voice") { engine.testVoice() }.buttonStyle(.bordered).accessibilityIdentifier("testVoice")
                 Toggle("Speak estimated distances (experimental)", isOn: $engine.detectionVoiceEnabled)
