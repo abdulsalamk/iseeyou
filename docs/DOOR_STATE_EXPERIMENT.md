@@ -40,3 +40,11 @@ A dedicated door localisation/state model trained with representative data remai
 All **44 tests passed on Salam’s physical iPhone 15 Pro** after the phone was unlocked. These include model inference and blank-image abstention, ambiguous/non-door score rejection, repeated/fresh state confirmation, tentative spoken wording, and existing camera/depth/glasses checks. A one-microsecond comparison tolerance handles floating-point timing boundaries. The normal development-signed build was installed successfully after this passing run.
 
 This is code and model-runtime validation, not a real-door accuracy result. Phone/glasses door-state evaluation and the deferred locked-phone glasses check remain outstanding. The compiled development build occupies about 155 MiB on the Mac; the exact iOS storage total can differ.
+
+## Follow-up from real-door feedback
+
+The user reports that a closed door was described generically and that a roughly 2 m surface was estimated near 3 m. This is an unresolved real-world recognition/accuracy failure, not covered by the passing runtime tests above. Generic automatic distance descriptions now pause while an explicit door assessment is pending, so they do not mask its result. No model weights or recognition thresholds were changed without image evidence.
+
+The distance calibration panel now offers an explicit single-point measured correction (reported and measured values; defaults 3 m and 2 m reflecting this report). This saves a multiplicative factor for the selected camera source, with confirmation before clearing old bench samples. It applies consistently to displayed and spoken object/surface distances; a full multi-distance training profile takes precedence once collected. This reference alone cannot pass validation. It is not an automatic subtraction or a verified accuracy improvement.
+
+The follow-up iOS build succeeded. The additional persistence/scaling test is written but physical device execution and installation are pending: the paired iPhone was unavailable to the Mac. The prior 44-test result applies to the previous installed build only.

@@ -73,6 +73,7 @@ final class CameraEngine: NSObject, ObservableObject, AVCaptureVideoDataOutputSa
     func checkDoorState() {
         guard running, wantsRunning else { doorStatus = "Start the camera before checking a door."; return }
         let token = UUID(), lease = generation
+        alerts.reset()
         currentDoorCheck = token; doorChecking = true
         doorStatus = "Checking centre view. Hold still, aimed at one door."
         inferenceQueue.async { [self] in
@@ -498,7 +499,9 @@ final class CameraEngine: NSObject, ObservableObject, AVCaptureVideoDataOutputSa
                 // Explicit unknown evidence makes this baseline abstain from speech.
                 self.hazardDecisions = self.assessor.assess(results, context: HazardContext(), sensitivity: self.sensitivity)
                 let stale = age > 500 || CACurrentMediaTime() - end > 0.5
-                if self.detectionVoiceEnabled {
+                if self.doorChecking {
+                    self.alertStatus = "Checking door; distance descriptions paused"
+                } else if self.detectionVoiceEnabled {
                     self.alerts.preview(stale ? [] : results, at: CACurrentMediaTime(), distanceScale: self.calibrationProfile.scale, minimumConfidence: Float(self.confidence),
                         surface: !stale && self.surfaceDescriptionsEnabled ? surface : nil)
                     self.alertStatus = stale ? "Suppressed: stale frame" : "Experimental spoken distance estimates; accuracy unverified"

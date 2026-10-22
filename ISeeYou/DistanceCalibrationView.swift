@@ -5,6 +5,9 @@ struct DistanceCalibrationView: View {
     let detections: [Detection]
     let frameAgeMS: Double
     let frameDate: Date
+    @State private var reportedReference = 3.0
+    @State private var measuredReference = 2.0
+    @State private var confirmingReference = false
     @State private var actual = 1.0
     @State private var label = ""
     @State private var validation = false
@@ -15,6 +18,16 @@ struct DistanceCalibrationView: View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Indoor distance calibration").font(.headline)
             Text("Estimates are unverified. Keep the phone still and select one isolated object. Measure from the rear camera to its visible surface. Reposition between samples. Test varied lighting and object types; a pass here is a limited bench check.").font(.caption)
+            DisclosureGroup("Correct an overestimated distance") {
+                Text("Enter the displayed distance and your tape-measured distance to the same surface. Applies a scale, not a fixed subtraction, to this camera source only. A single reference cannot establish accuracy elsewhere.").font(.caption)
+                Stepper(String(format: "App reported: %.1f m", reportedReference), value: $reportedReference, in: 0.2...10, step: 0.1)
+                Stepper(String(format: "Measured: %.1f m", measuredReference), value: $measuredReference, in: 0.2...10, step: 0.1)
+                Button("Apply measured correction") { confirmingReference = true }
+                    .confirmationDialog("Apply this single-point correction and clear previous bench samples?", isPresented: $confirmingReference) {
+                        Button("Apply correction") { calibration.applyReference(actual: measuredReference, reported: reportedReference) }
+                    }
+                Text("Defaults reflect your reported 3 m reading at an actual 2 m. Confirm the values before applying.").font(.caption)
+            }
             Picker("Object to measure", selection: $label) {
                 Text("Select an object").tag("")
                 ForEach(Array(Set(candidates.map(\.label))).sorted(), id: \.self) { Text($0).tag($0) }

@@ -28,6 +28,19 @@ final class MetricDistanceTests: XCTestCase {
         profile.trials.removeLast()
         XCTAssertFalse(profile.passed)
     }
+    func testMeasuredReferenceScalesRatherThanSubtractingAndPersists() throws {
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".json")
+        defer { try? FileManager.default.removeItem(at: url) }
+        let calibration = DistanceCalibration(url: url)
+        calibration.applyReference(actual: 2, reported: 3)
+        XCTAssertEqual(try XCTUnwrap(calibration.profile.scale), 2.0/3, accuracy: 0.00001)
+        XCTAssertFalse(calibration.profile.passed)
+        XCTAssertEqual(try XCTUnwrap(DistanceCalibration(url: url).profile.scale) * 0.6, 0.4, accuracy: 0.00001)
+        calibration.applyReference(actual: 0, reported: 3)
+        XCTAssertEqual(try XCTUnwrap(calibration.profile.scale), 2.0/3, accuracy: 0.00001)
+        calibration.reset()
+        XCTAssertNil(calibration.profile.scale)
+    }
     func testNearRangeFailureKeepsProfileUnvalidated() {
         var profile = CalibrationProfile(trials: [0.5, 1, 2].map { trial($0, raw: $0, validation: false) })
         for target in CalibrationProfile.targets {
