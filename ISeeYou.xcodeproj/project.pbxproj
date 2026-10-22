@@ -13,6 +13,7 @@
 		116AB28A72B98C8A921EE0C6 /* DetectionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7196EEBA195DAE7C56F2B1B /* DetectionTests.swift */; };
 		16D684AC304958B28E29DBB4 /* StableExplanationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58E33C8F482B8B7DAEE6295D /* StableExplanationTests.swift */; };
 		1E47644AFD5660AC23B7E1A0 /* GlassesIntegrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA24844116A0AF544999B99E /* GlassesIntegrationTests.swift */; };
+		1E756CCA753F04FC7F59A5DB /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = EA2E802B1A9666B81B29D5BA /* Assets.xcassets */; };
 		1FC16A3F42BB7B98C752FACD /* MWDATCore in Frameworks */ = {isa = PBXBuildFile; productRef = 109B586DF8D491684F65674D /* MWDATCore */; };
 		2E385A27C4F1C301F893B440 /* UnknownObjectTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EC7A8EF3C199C543F2596A01 /* UnknownObjectTests.swift */; };
 		3F1F95DC3742BF74FF86E0F8 /* CameraLifecycleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 424945874503F6B65D68CE61 /* CameraLifecycleTests.swift */; };
@@ -80,6 +81,7 @@
 		E2200A3F9C08AD1B85886AB6 /* ISeeYouUITests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = ISeeYouUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		E2EDC7408A4D1B4F7C55CF88 /* GlassesSessionDiagnostics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlassesSessionDiagnostics.swift; sourceTree = "<group>"; };
 		EA24844116A0AF544999B99E /* GlassesIntegrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlassesIntegrationTests.swift; sourceTree = "<group>"; };
+		EA2E802B1A9666B81B29D5BA /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		EC7A8EF3C199C543F2596A01 /* UnknownObjectTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UnknownObjectTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -142,6 +144,7 @@
 			isa = PBXGroup;
 			children = (
 				7F28077046EAC0EFA7F2F583 /* AlertPolicy.swift */,
+				EA2E802B1A9666B81B29D5BA /* Assets.xcassets */,
 				A94A010CFD8FB909BA10119E /* AudioOutputPicker.swift */,
 				83A8FA7B540E7FEE73AA20DB /* CameraEngine.swift */,
 				9B855B6D35A156BAD5D646BF /* CameraLifecyclePolicy.swift */,
@@ -170,6 +173,7 @@
 			buildConfigurationList = 220EDA9FE22A23C122933047 /* Build configuration list for PBXNativeTarget "ISeeYou" */;
 			buildPhases = (
 				64AD8DFCF705EFF8C835FCA4 /* Sources */,
+				818C84482742E27107DB6740 /* Resources */,
 				D910A176161769D04069070F /* Frameworks */,
 				C2209BCEAD2D64E3DA519E5A /* Compile optional YOLO11n model */,
 			);
@@ -259,6 +263,17 @@
 			);
 		};
 /* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		818C84482742E27107DB6740 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1E756CCA753F04FC7F59A5DB /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
 		C2209BCEAD2D64E3DA519E5A /* Compile optional YOLO11n model */ = {
