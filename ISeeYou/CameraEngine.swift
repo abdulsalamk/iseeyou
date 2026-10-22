@@ -60,6 +60,8 @@ final class CameraEngine: NSObject, ObservableObject, AVCaptureVideoDataOutputSa
         didSet { alerts.reset() }
     }
     @Published var showHazardDebug = true
+    @Published var surfaceDescriptionsEnabled = true { didSet { alerts.reset() } }
+    @Published private(set) var centralSurface: ObjectDistance?
     @Published private(set) var hazardDecisions: [HazardDecision] = []
     @Published private(set) var alertStatus = "Speech off"
     private let assessor: any HazardAssessing = HazardAssessment()
@@ -312,6 +314,7 @@ final class CameraEngine: NSObject, ObservableObject, AVCaptureVideoDataOutputSa
         glassesPreview = nil
         previewAspectRatio = 9.0 / 16.0
         detections = []
+        centralSurface = nil
         lastDistanceFrame = .distantPast
         distanceStatus = "Distance: camera stopped"
         hazardDecisions = []
@@ -396,8 +399,12 @@ final class CameraEngine: NSObject, ObservableObject, AVCaptureVideoDataOutputSa
                 return Detection(label: label.identifier, confidence: label.confidence, bounds: observation.boundingBox)
             }
             var depthError: String?
+            var surface: ObjectDistance?
             if let depthEstimator {
-                do { results = try depthEstimator.estimate(buffer, detections: results) }
+                do {
+                    let estimate = try depthEstimator.estimateFrame(buffer, detections: results)
+                    results = estimate.objects; surface = estimate.surface
+                }
                 catch { depthError = error.localizedDescription }
             }
             let depthAvailable = depthEstimator != nil
@@ -439,7 +446,8 @@ final class CameraEngine: NSObject, ObservableObject, AVCaptureVideoDataOutputSa
                 self.hazardDecisions = self.assessor.assess(results, context: HazardContext(), sensitivity: self.sensitivity)
                 let stale = age > 500 || CACurrentMediaTime() - end > 0.5
                 if self.detectionVoiceEnabled {
-                    self.alerts.preview(stale ? [] : results, at: CACurrentMediaTime(), distanceScale: self.calibrationProfile.scale, minimumConfidence: Float(self.confidence))
+                    self.alerts.preview(stale ? [] : results, at: CACurrentMediaTime(), distanceScale: self.calibrationProfile.scale, minimumConfidence: Float(self.confidence),
+                        surface: !stale && self.surfaceDescriptionsEnabled ? surface : nil)
                     self.alertStatus = stale ? "Suppressed: stale frame" : "Experimental spoken distance estimates; accuracy unverified"
                 } else {
                     self.alerts.update(stale ? [] : self.hazardDecisions, at: CACurrentMediaTime(), enabled: self.speechEnabled)
@@ -449,6 +457,7 @@ final class CameraEngine: NSObject, ObservableObject, AVCaptureVideoDataOutputSa
                     results = results.map { item in var copy = item; copy.distance = nil; return copy }
                 }
                 self.lastDistanceFrame = Date()
+                self.centralSurface = !stale && self.surfaceDescriptionsEnabled ? surface : nil
                 if let depthError { self.distanceStatus = "Distance unavailable: " + depthError }
                 else if depthAvailable {
                     self.distanceStatus = stale ? "Distance unavailable: stale frame" : "Indoor distance estimates · " + (self.calibrationProfile.passed ? "bench checks passed" : "unverified / needs calibration")
@@ -462,7 +471,7 @@ final class CameraEngine: NSObject, ObservableObject, AVCaptureVideoDataOutputSa
         } catch {
             DispatchQueue.main.async {
                 guard self.generation == lease else { return }
-                self.alerts.reset(); self.hazardDecisions = []; self.detections = []; self.status = "Inference failed: \(error.localizedDescription)" }
+                self.alerts.reset(); self.hazardDecisions = []; self.detections = []; self.centralSurface = nil; self.status = "Inference failed: \(error.localizedDescription)" }
         }
     }
 }

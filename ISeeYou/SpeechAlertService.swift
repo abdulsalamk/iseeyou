@@ -71,6 +71,7 @@ final class SpeechAlertService: NSObject, SpeechAlerting, AVSpeechSynthesizerDel
 }
 
 final class HazardAlertController {
+    private var surfacePolicy = SurfaceAnnouncementPolicy()
     func beginGlassesAudio() throws { try (speech as? SpeechAlertService)?.beginGlassesAudio() }
     func endGlassesAudio() { (speech as? SpeechAlertService)?.endGlassesAudio() }
     private var policy: any AlertPolicyApplying
@@ -103,6 +104,7 @@ final class HazardAlertController {
     }
     func update(_ decisions: [HazardDecision], at time: TimeInterval, enabled: Bool) {
         guard enabled, !interrupted else {
+            surfacePolicy = SurfaceAnnouncementPolicy()
             policy.reset()
             // Cancel once when live speech is disabled, not on every camera
             // frame. Explicit Test Voice must survive disabled live updates.
@@ -114,7 +116,7 @@ final class HazardAlertController {
         if let alert = policy.update(decisions, at: time) { speech.speak(alert) }
     }
     // Explicit detection-preview mode: describes image position, never hazard risk.
-    func preview(_ detections: [Detection], at time: TimeInterval, distanceScale: Double? = nil, minimumConfidence: Float = 0.4) {
+    func preview(_ detections: [Detection], at time: TimeInterval, distanceScale: Double? = nil, minimumConfidence: Float = 0.4, surface: ObjectDistance? = nil) {
         let decisions = detections.filter { $0.confidence >= minimumConfidence && CandidateCorridor.intersectsFoot($0.bounds) }
             .map { $0.conservativelyNamed() }
             .compactMap { detection -> HazardDecision? in
@@ -127,11 +129,19 @@ final class HazardAlertController {
                     message: message)
             }
         update(decisions, at: time, enabled: true)
+        // Named objects retain priority. A surface is a fallback description,
+        // not a fabricated detector box or confidence percentage.
+        if decisions.isEmpty, !interrupted,
+           let alert = surfacePolicy.update(surface, at: time, scale: distanceScale) {
+            speech.speak(alert)
+        } else if !decisions.isEmpty {
+            _ = surfacePolicy.update(nil, at: time, scale: distanceScale)
+        }
     }
     func testVoice() {
         guard !interrupted else { return }
         reset()
         speech.speak(SpokenAlert(level: .caution, message: "Voice is working. Object descriptions do not confirm hazards."))
     }
-    func reset() { wasEnabled = false; policy.reset(); speech.cancel() }
+    func reset() { wasEnabled = false; policy.reset(); surfacePolicy = SurfaceAnnouncementPolicy(); speech.cancel() }
 }

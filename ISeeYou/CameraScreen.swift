@@ -32,6 +32,11 @@ struct CameraScreen: View {
                 }
                 Button("Test voice") { engine.testVoice() }.buttonStyle(.bordered).accessibilityIdentifier("testVoice")
                 Toggle("Speak estimated distances (experimental)", isOn: $engine.detectionVoiceEnabled)
+                Toggle("Describe nearby surfaces (experimental)", isOn: $engine.surfaceDescriptionsEnabled)
+                TwoLineExplanation(text: engine.centralSurface.map {
+                    String(format: "Central surface ~%.1f m (unverified)", $0.metres * (activeCalibration.profile.scale ?? 1))
+                } ?? "Central surface: no consistent nearby depth patch").font(.caption)
+                Text("Surface descriptions use central depth without recognising a wall or door. Hold the camera level. They do not establish a clear path or detect glass reliably.").font(.caption)
                 TwoLineExplanation(text: engine.voiceStatus).font(.caption).accessibilityIdentifier("voiceStatus")
                 TwoLineExplanation(text: engine.status).font(.callout).accessibilityIdentifier("cameraStatus")
                 Text("Received video frames: \(engine.receivedFrames)").font(.caption.monospacedDigit()).accessibilityIdentifier("cameraFrames")

@@ -23,6 +23,9 @@ final class MetricDepthEstimator {
         model = try MLModel(contentsOf: url, configuration: config)
     }
     func estimate(_ buffer: CVPixelBuffer, detections: [Detection]) throws -> [Detection] {
+        try estimateFrame(buffer, detections: detections).objects
+    }
+    func estimateFrame(_ buffer: CVPixelBuffer, detections: [Detection]) throws -> (objects: [Detection], surface: ObjectDistance?) {
         var resized: CVPixelBuffer?
         let attributes: [String: Any] = [kCVPixelBufferIOSurfacePropertiesKey as String: [:],
             kCVPixelBufferCGImageCompatibilityKey as String: true]
@@ -39,13 +42,17 @@ final class MetricDepthEstimator {
               depth.shape.map(\.intValue) == [1, height, width] else {
             throw NSError(domain: "Depth", code: 3, userInfo: [NSLocalizedDescriptionKey: "Unexpected depth output shape"])
         }
-        return detections.map { item in
+        let objects = detections.map { item in
             var result = item
             result.distance = DepthSampling.read(bounds: item.bounds, width: width, height: height) { x, y in
                 depth[[0, NSNumber(value: y), NSNumber(value: x)]].doubleValue
             }
             return result
         }
+        let surface = SurfaceDepthSampling.read(width: width, height: height) { x, y in
+            depth[[0, NSNumber(value: y), NSNumber(value: x)]].doubleValue
+        }
+        return (objects, surface)
     }
 }
 

@@ -32,3 +32,11 @@ Record surface recall, false announcements, wall/door/floor confusion, depth err
 - NVIDIA checkpoint and model card: https://huggingface.co/nvidia/segformer-b0-finetuned-ade-512-512
 - Exact label configuration: https://huggingface.co/nvidia/segformer-b0-finetuned-ade-512-512/blob/main/config.json
 - Official SegFormer implementation and licensing statement: https://github.com/NVlabs/SegFormer
+
+## First implemented surface prototype
+
+The existing depth inference now also returns an independent central surface candidate, without requiring any YOLO object boxes or adding another model. The Vision-coordinate patch is x=0.32–0.68, y=0.35–0.75, divided into nine cells. At least eight cells must have valid robust depth estimates; each row needs at least two cells. Candidates must be 0.15–3 metres, spatial depth range no more than 20 cm or 25%, and top-to-bottom gradient no more than 15 cm or 20%, whichever is larger. This rejects some floor-like gradients but does not classify a floor; a level camera view is still required.
+
+"Describe nearby surfaces (experimental)" is enabled by default, but automatic speech still requires the separate "Speak estimated distances" switch and a manual camera Start. Surface descriptions are a fallback when there are no eligible named-object descriptions. They require one second of continuous observations with no gap over half a second, use an eight-second repeat cooldown, and apply the same source-specific experimental distance correction. Invalid, missing, or stale depth produces no number. Below half a metre the phrase adds "very close". The spoken message is "Surface ahead, approximately 1.5 metres", never "wall", "door", "closed", or "safe". Stop and errors clear the surface reading and speech confirmation.
+
+All 39 unit tests passed on the paired physical iPhone 15 Pro, including five new sampling/speech tests. Synthetic tests cover blank uniform depth, invalid/distant/mixed/gradient rejection, off-centre exclusion, persistence, missing-depth gaps, cooldown, object priority, and reset. No real wall/door accuracy or navigation safety result is claimed. Glasses locked-screen behavior remains pending the deferred real-device check.
