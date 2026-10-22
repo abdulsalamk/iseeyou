@@ -19,6 +19,7 @@ import zipfile
 REPO = 'abdulsalamk/iseeyou'
 REPO_ID = 1427983832
 CONTEXT = 'deployment/mac-ready'
+DEVELOPMENT_BRANCH = 'codex/meta-glasses'
 WORKFLOW = '.github/workflows/ios-build.yml'
 ARTIFACT = 'ISeeYou-unsigned-requires-signing'
 SHA = re.compile(r'^[0-9a-f]{40}$')
@@ -68,9 +69,15 @@ def readiness(statuses, actor, now=None):
     require(0 <= age <= 300, 'Mac readiness expired or has future timestamp')
 
 
+def current_development(sha):
+    ref = api(f'repos/{REPO}/git/ref/heads/{DEVELOPMENT_BRANCH}')
+    require(ref['object']['sha'] == sha, 'Candidate is not current development branch tip')
+
+
 def gate(sha, actor):
     commit(sha)
     repo_check()
+    current_development(sha)
     statuses = api(f'repos/{REPO}/commits/{sha}/statuses?per_page=100')
     readiness(statuses, actor)
 
@@ -121,6 +128,7 @@ def post_status(sha, state):
 def announce(sha, config):
     commit(sha)
     repo_check()
+    current_development(sha)
     post_status(sha, 'pending')
     try:
         mac_preflight(config)

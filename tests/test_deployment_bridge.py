@@ -155,7 +155,7 @@ class BridgeTests(unittest.TestCase):
             run.assert_not_called()
 
     def test_readiness_failure_posts_failure(self):
-        with patch.object(b, 'repo_check'), patch.object(b, 'post_status') as post, patch.object(b, 'mac_preflight', side_effect=ValueError('locked')):
+        with patch.object(b, 'repo_check'), patch.object(b, 'current_development'), patch.object(b, 'post_status') as post, patch.object(b, 'mac_preflight', side_effect=ValueError('locked')):
             with self.assertRaises(ValueError): b.announce(SHA, {})
         self.assertEqual(post.call_args_list, [unittest.mock.call(SHA, 'pending'), unittest.mock.call(SHA, 'failure')])
 
@@ -194,6 +194,12 @@ class BridgeTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             p = Path(d)/'config.json'; p.write_text('{}'); p.chmod(0o644)
             with self.assertRaises(ValueError): b.load_config(p)
+
+    def test_superseded_development_commit_refused(self):
+        with patch.object(b, 'api', return_value={'object': {'sha': 'b'*40}}):
+            with self.assertRaises(ValueError): b.current_development(SHA)
+        with patch.object(b, 'api', return_value={'object': {'sha': SHA}}):
+            b.current_development(SHA)
 
 
 if __name__ == '__main__':
