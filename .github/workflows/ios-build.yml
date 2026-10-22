@@ -1,37 +1,73 @@
 name: iOS cloud build
 on:
   push:
+    branches: [main, 'codex/**']
+  pull_request:
     branches: [main]
   workflow_dispatch:
 permissions:
   contents: read
+concurrency:
+  group: ios-unsigned-${{ github.ref }}
+  cancel-in-progress: false
 jobs:
   build:
     runs-on: macos-15
-    timeout-minutes: 25
+    timeout-minutes: 35
     steps:
-      - uses: actions/checkout@v4
-      - name: Show Xcode version
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Show hosted Xcode version
         run: xcodebuild -version
-      - name: Build iPhone app without signing
+      - name: Resolve only locked Swift packages
+        run: >-
+          xcodebuild -resolvePackageDependencies -project ISeeYou.xcodeproj
+          -scheme ISeeYou -onlyUsePackageVersionsFromResolvedFile
+      - name: Build physical iPhone app without signing
         run: |
-          set -o pipefail
-          xcodebuild -project ISeeYou.xcodeproj -scheme ISeeYou -configuration Release -destination 'generic/platform=iOS' -derivedDataPath build CODE_SIGNING_ALLOWED=NO build | tee build.log
-      - name: Package unsigned app for later signing
+          set -euo pipefail
+          xcodebuild -project ISeeYou.xcodeproj -scheme ISeeYou \
+            -configuration Release -destination 'generic/platform=iOS' \
+            -derivedDataPath build -disableAutomaticPackageResolution \
+            -onlyUsePackageVersionsFromResolvedFile CODE_SIGNING_ALLOWED=NO \
+            build | tee build.log
+      - name: Package unsigned app and exact build identity
+        env:
+          BUILD_SHA: ${{ github.sha }}
+          BUILD_RUN_ID: ${{ github.run_id }}
+          BUILD_ATTEMPT: ${{ github.run_attempt }}
+          BUILD_REPOSITORY_ID: ${{ github.repository_id }}
         run: |
-          mkdir -p package/Payload
-          cp -R build/Build/Products/Release-iphoneos/ISeeYou.app package/Payload/
-          cd package
-          zip -qry ../ISeeYou-unsigned.ipa Payload
-      - name: Save unsigned build (requires signing before installation)
-        uses: actions/upload-artifact@v4
+          python3 - <<'PY'
+          import hashlib, json, os, pathlib, zipfile
+          app = pathlib.Path('build/Build/Products/Release-iphoneos/ISeeYou.app')
+          assert app.is_dir(), 'Hosted build did not produce an iPhone app'
+          out = pathlib.Path('package')
+          out.mkdir()
+          archive = out / 'ISeeYou.app.zip'
+          with zipfile.ZipFile(archive, 'w', zipfile.ZIP_DEFLATED) as z:
+              for p in sorted(app.rglob('*')):
+                  assert not p.is_symlink(), f'Unsupported app symlink: {p}'
+                  z.write(p, p.relative_to(app.parent))
+          manifest = dict(repository_id=int(os.environ['BUILD_REPOSITORY_ID']),
+                          sha=os.environ['BUILD_SHA'], run_id=os.environ['BUILD_RUN_ID'],
+                          run_attempt=os.environ['BUILD_ATTEMPT'],
+                          sha256=hashlib.sha256(archive.read_bytes()).hexdigest())
+          (out / 'manifest.json').write_text(json.dumps(manifest, sort_keys=True) + '\n')
+          PY
+      - name: Save unsigned build for local Mac signing
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: ISeeYou-unsigned-requires-signing
-          path: ISeeYou-unsigned.ipa
+          path: |
+            package/ISeeYou.app.zip
+            package/manifest.json
+          if-no-files-found: error
           retention-days: 7
       - name: Save build log
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: ios-build-log
           path: build.log
