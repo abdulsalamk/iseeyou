@@ -3,6 +3,15 @@ import CoreVideo
 @testable import ISeeYou
 
 final class DoorSceneTests: XCTestCase {
+    @MainActor
+    func testStoppedCameraGivesActionableDoorMessageThatSurvivesStop() {
+        let engine = CameraEngine()
+        engine.checkDoorState()
+        XCTAssertFalse(engine.doorChecking)
+        XCTAssertEqual(engine.doorStatus, "Start the camera before checking a door.")
+        engine.stop(reason: "App entered background")
+        XCTAssertEqual(engine.doorStatus, "Start the camera before checking a door.")
+    }
     func testStateRequiresDoorAndStateSeparation() {
         XCTAssertEqual(DoorSceneScoring.decide(["closed": 0.4, "open": 0.28, "partlyOpen": 0.29, "wall": 0.25]), .closed)
         XCTAssertEqual(DoorSceneScoring.decide(["closed": 0.27, "open": 0.4, "partlyOpen": 0.28, "wall": 0.24]), .open)

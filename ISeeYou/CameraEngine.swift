@@ -90,7 +90,7 @@ final class CameraEngine: NSObject, ObservableObject, AVCaptureVideoDataOutputSa
     private func finishDoorCheck(_ state: DoorVisualState, token: UUID, lease: UUID, note: String? = nil) {
         guard currentDoorCheck == token, generation == lease, running, wantsRunning else { return }
         currentDoorCheck = nil; doorChecking = false
-        doorStatus = state.message + " Experimental scene estimate."
+        doorStatus = "Last check: " + state.message + " Experimental scene estimate."
         if let note { doorDiagnostic += "\n" + note }
         // Numeric/text diagnostics only: no frame, embedding, or recording is retained.
         let report: [String: String] = ["date": ISO8601DateFormatter().string(from: Date()),
@@ -385,7 +385,13 @@ final class CameraEngine: NSObject, ObservableObject, AVCaptureVideoDataOutputSa
         previewAspectRatio = 9.0 / 16.0
         detections = []
         centralSurface = nil
-        currentDoorCheck = nil; doorChecking = false; doorStatus = "Door state not checked"
+        if doorChecking {
+            doorStatus = "Door check interrupted. Start camera and check again."
+            doorDiagnostic = "Interrupted: " + reason
+        }
+        // Keep completed results when switching to chat to report them.
+        // The Last check prefix distinguishes these from the current scene.
+        currentDoorCheck = nil; doorChecking = false
         lastDistanceFrame = .distantPast
         distanceStatus = "Distance: camera stopped"
         hazardDecisions = []

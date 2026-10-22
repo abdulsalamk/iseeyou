@@ -56,3 +56,13 @@ The manual button and fixed two-line result are now outside the collapsed detail
 The details panel shows the four strongest cosine comparisons and local frame age. Stale results still abstain. A timeout and model error are distinguished in diagnostics. The latest completed check is saved to Library/Caches/last-door-check.json (overwritten each check); it contains date, camera source, outcome, score/timing text only, with no image, embedding, video, or audio. The user can also explicitly share the displayed diagnostic text. Existing camera-source calibration is preserved during app updates.
 
 The follow-up iOS build passed and the app installed successfully on the paired iPhone. Native checks compiled the production Swift scoring/consensus source and passed specific-state, ambiguous-state, non-door, invalid-input, and temporal checks. The expanded physical-device XCTest run is still pending phone unlock (the initial run was cancelled at Xcode’s locked-device prompt). The prior 45-test pass applies to the previous build. No real-door recognition or distance-accuracy validation is claimed.
+
+## Door-check control and app-switch follow-up
+
+The phone-camera lifecycle stops capture on app switching. Previously stop also reset the displayed door result to “not checked,” making it difficult to report a result through chat. Completed results now remain marked “Last check” across Stop/background/source changes; pending checks are cancelled with an explicit interruption message. Results are historical, not descriptions of a newly viewed scene.
+
+The check button now uses a large prominent style. It remains tappable when capture is stopped so its existing guard can explain that Start camera is required, rather than silently disabling the control. A fixed two-line hint distinguishes stopped capture from readiness. This does not automatically start capture or run continuous door recognition.
+
+All 47 physical-device UnitChecks passed with zero failures or skips, including bundled door-model blank-image rejection, the new ambiguous-state result, and the stopped-camera message surviving Stop. The normal app was installed successfully afterward. Result: Test-UnitChecks-2026.10.22_20-19-12-+0100.xcresult. Real-door classification accuracy, staircase recognition, distance accuracy, and sustained locked-glasses operation are not validated by this test result. The user reported a wastebin labelled toilet and stairs labelled couch; the existing COCO object model does not have a staircase class.
+
+The published cloud snapshot predates this control follow-up. Fetch the latest codex/meta-glasses branch when continuing in cloud tasks; do not silently reset user changes or assume the snapshot is current.
