@@ -237,3 +237,5 @@ __pycache__/
 
 !ISeeYou/Models/MetricDepthSmall.mlpackage/
 !ISeeYou/Models/MetricDepthSmall.mlpackage/**
+!ISeeYou/Models/DoorSceneImage.mlpackage/
+!ISeeYou/Models/DoorSceneImage.mlpackage/**

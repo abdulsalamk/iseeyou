@@ -62,6 +62,58 @@ final class CameraEngine: NSObject, ObservableObject, AVCaptureVideoDataOutputSa
     @Published var showHazardDebug = true
     @Published var surfaceDescriptionsEnabled = true { didSet { alerts.reset() } }
     @Published private(set) var centralSurface: ObjectDistance?
+    @Published private(set) var doorChecking = false
+    @Published private(set) var doorStatus = "Door state not checked"
+    private var currentDoorCheck: UUID? // main thread
+    private var doorRequest: UUID? // inference queue
+    private var doorLastInference: TimeInterval = -.infinity
+    private var doorConsensus = DoorStateConsensus()
+    private var doorClassifier: DoorSceneClassifier?
+
+    func checkDoorState() {
+        guard running, wantsRunning else { doorStatus = "Start the camera before checking a door."; return }
+        let token = UUID(), lease = generation
+        currentDoorCheck = token; doorChecking = true
+        doorStatus = "Checking centre view. Hold still, aimed at one door."
+        inferenceQueue.async { [self] in
+            guard generation == lease else { return }
+            doorRequest = token; doorLastInference = -.infinity; doorConsensus = DoorStateConsensus()
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 8) { [weak self] in
+            self?.finishDoorCheck(.uncertain, token: token, lease: lease)
+        }
+    }
+
+    private func finishDoorCheck(_ state: DoorVisualState, token: UUID, lease: UUID) {
+        guard currentDoorCheck == token, generation == lease, running, wantsRunning else { return }
+        currentDoorCheck = nil; doorChecking = false
+        doorStatus = state.message + " Experimental scene estimate."
+        alerts.speakDoorAssessment(state)
+        inferenceQueue.async { [self] in if doorRequest == token { doorRequest = nil } }
+    }
+
+    private func processDoorCheck(_ buffer: CVPixelBuffer, sample: CMSampleBuffer, external: Bool,
+                                  receivedAt: TimeInterval?, lease: UUID) {
+        guard let token = doorRequest, generation == lease,
+              CACurrentMediaTime() - doorLastInference >= 0.35 else { return }
+        doorLastInference = CACurrentMediaTime()
+        do {
+            if doorClassifier == nil { doorClassifier = try DoorSceneClassifier() }
+            guard let doorClassifier else { return }
+            let state = try doorClassifier.assess(buffer)
+            let age = external ? CACurrentMediaTime() - (receivedAt ?? -.infinity)
+                : CMClockGetTime(CMClockGetHostTimeClock()).seconds - CMSampleBufferGetPresentationTimeStamp(sample).seconds
+            // Never carry a stale or queued image into a spoken door result.
+            guard age.isFinite, age >= -0.05, age <= 1 else { doorConsensus = DoorStateConsensus(); return }
+            guard let stable = doorConsensus.update(state, at: CACurrentMediaTime()) else { return }
+            doorRequest = nil
+            DispatchQueue.main.async { [weak self] in self?.finishDoorCheck(stable, token: token, lease: lease) }
+        } catch {
+            cameraLog("Door check unavailable: " + error.localizedDescription)
+            doorRequest = nil
+            DispatchQueue.main.async { [weak self] in self?.finishDoorCheck(.uncertain, token: token, lease: lease) }
+        }
+    }
     @Published private(set) var hazardDecisions: [HazardDecision] = []
     @Published private(set) var alertStatus = "Speech off"
     private let assessor: any HazardAssessing = HazardAssessment()
@@ -315,6 +367,7 @@ final class CameraEngine: NSObject, ObservableObject, AVCaptureVideoDataOutputSa
         previewAspectRatio = 9.0 / 16.0
         detections = []
         centralSurface = nil
+        currentDoorCheck = nil; doorChecking = false; doorStatus = "Door state not checked"
         lastDistanceFrame = .distantPast
         distanceStatus = "Distance: camera stopped"
         hazardDecisions = []
@@ -468,6 +521,7 @@ final class CameraEngine: NSObject, ObservableObject, AVCaptureVideoDataOutputSa
                 self.fps = rate
                 self.thermal = heat
             }
+            processDoorCheck(buffer, sample: sampleBuffer, external: external, receivedAt: receivedAt, lease: lease)
         } catch {
             DispatchQueue.main.async {
                 guard self.generation == lease else { return }

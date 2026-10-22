@@ -1,0 +1,15 @@
+{
+  "source": "https://github.com/openai/CLIP",
+  "source_commit": "d05afc436d78f1c48dc0dbf8e5980a9d471f35f6",
+  "checkpoint": "ViT-B/32",
+  "checkpoint_sha256": "40d365715913c9da98579312b702a82c18be219cc2a73407c4526f58eba950af",
+  "conversion": "Image tower only; RGB scale 1/255 and original CLIP normalisation; FP16 compute, per-channel symmetric int8 weight compression",
+  "classification": "Fixed prompt comparison; no door-state training or calibration",
+  "license": "MIT; see models/licenses/CLIP-Model-MIT.txt",
+  "files": {
+    "ISeeYou/Models/DoorSceneImage.mlpackage/Manifest.json": "1886e2c67abc4cea427e3b7ec1a0674e45f13587b0b54810b2b5f72e2575495d",
+    "ISeeYou/Models/DoorSceneImage.mlpackage/Data/com.apple.CoreML/model.mlmodel": "ba0739dbb104c93bad4612402cbf291d013f0d84c56568a1a3ef86a6fcc072c3",
+    "ISeeYou/Models/DoorSceneImage.mlpackage/Data/com.apple.CoreML/weights/weight.bin": "92af61204e61b4a998c0858efc69819afa06964cfc2165c60cb99dcc577ea4e0",
+    "ISeeYou/DoorPrompts.json": "0cbed53e07daacb41ab89150ea80fd5c848b8e6907c2d694ba291a515c5c3748"
+  }
+}

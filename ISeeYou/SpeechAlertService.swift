@@ -143,5 +143,10 @@ final class HazardAlertController {
         reset()
         speech.speak(SpokenAlert(level: .caution, message: "Voice is working. Object descriptions do not confirm hazards."))
     }
+    func speakDoorAssessment(_ state: DoorVisualState) {
+        guard !interrupted else { return }
+        reset()
+        speech.speak(SpokenAlert(level: .caution, message: state.message))
+    }
     func reset() { wasEnabled = false; policy.reset(); surfacePolicy = SurfaceAnnouncementPolicy(); speech.cancel() }
 }

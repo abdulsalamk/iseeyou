@@ -37,6 +37,14 @@ struct CameraScreen: View {
                     String(format: "Central surface ~%.1f m (unverified)", $0.metres * (activeCalibration.profile.scale ?? 1))
                 } ?? "Central surface: no consistent nearby depth patch").font(.caption)
                 Text("Surface descriptions use central depth without recognising a wall or door. Hold the camera level. They do not establish a clear path or detect glass reliably.").font(.caption)
+                DisclosureGroup("Door-state experiment") {
+                    Text("Aim the centre of the camera at one door and hold still. This compares the scene with descriptions; it does not locate the door, measure its opening, or determine whether it is locked.").font(.caption)
+                    Button(engine.doorChecking ? "Checking door…" : "Check and speak door state") { engine.checkDoorState() }
+                        .disabled(!engine.running || engine.doorChecking)
+                        .accessibilityIdentifier("checkDoorState")
+                    TwoLineExplanation(text: engine.doorStatus).font(.caption)
+                    Text("Spoken states are tentative and unverified. An apparent open door does not establish a safe passage.").font(.caption)
+                }
                 TwoLineExplanation(text: engine.voiceStatus).font(.caption).accessibilityIdentifier("voiceStatus")
                 TwoLineExplanation(text: engine.status).font(.callout).accessibilityIdentifier("cameraStatus")
                 Text("Received video frames: \(engine.receivedFrames)").font(.caption.monospacedDigit()).accessibilityIdentifier("cameraFrames")

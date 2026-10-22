@@ -34,6 +34,9 @@ targets:
           if [ -d "$SRCROOT/ISeeYou/Models/MetricDepthSmall.mlpackage" ]; then
             xcrun coremlcompiler compile "$SRCROOT/ISeeYou/Models/MetricDepthSmall.mlpackage" "$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH"
           fi
+          if [ -d "$SRCROOT/ISeeYou/Models/DoorSceneImage.mlpackage" ]; then
+            xcrun coremlcompiler compile "$SRCROOT/ISeeYou/Models/DoorSceneImage.mlpackage" "$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH"
+          fi
     info:
       path: ISeeYou/Info.plist
       properties:
