@@ -1,0 +1,37 @@
+name: AWS bootstrap connection check
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+  id-token: write
+jobs:
+  verify:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      AWS_REGION: eu-west-2
+      STATE_BUCKET: iseeyou-terraform-state-885625664603-eu-west-2
+    steps:
+      - name: Assume repository-scoped AWS role
+        uses: aws-actions/configure-aws-credentials@cabfdba3510de1431bac9dba27511d97497fc100 # v5
+        with:
+          role-to-assume: arn:aws:iam::885625664603:role/iseeyou-github-terraform
+          aws-region: eu-west-2
+          role-duration-seconds: 900
+          mask-aws-account-id: true
+      - name: Verify private state bucket and object round trip
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(aws s3api get-bucket-versioning --bucket "$STATE_BUCKET" --query Status --output text)" = Enabled
+          test "$(aws s3api get-bucket-encryption --bucket "$STATE_BUCKET" --query 'ServerSideEncryptionConfiguration.Rules[0].ApplyServerSideEncryptionByDefault.SSEAlgorithm' --output text)" = AES256
+          aws s3api get-public-access-block --bucket "$STATE_BUCKET" --output json > "$RUNNER_TEMP/public-access.json"
+          python3 -c 'import json,sys; assert all(json.load(open(sys.argv[1]))["PublicAccessBlockConfiguration"].values())' "$RUNNER_TEMP/public-access.json"
+          key="bootstrap/checks/${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}.txt"
+          trap 'aws s3api delete-object --bucket "$STATE_BUCKET" --key "$key" > /dev/null' EXIT
+          printf '%s' "$GITHUB_SHA" > "$RUNNER_TEMP/expected.txt"
+          aws s3api put-object --bucket "$STATE_BUCKET" --key "$key" --body "$RUNNER_TEMP/expected.txt" > /dev/null
+          aws s3api get-object --bucket "$STATE_BUCKET" --key "$key" "$RUNNER_TEMP/actual.txt" > /dev/null
+          cmp "$RUNNER_TEMP/expected.txt" "$RUNNER_TEMP/actual.txt"
+          echo 'GitHub OIDC and private state-bucket round trip passed.'
