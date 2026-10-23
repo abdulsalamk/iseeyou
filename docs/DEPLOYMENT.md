@@ -1,88 +1,121 @@
-# Hosted unsigned builds and a user-invoked Mac bridge
+# Hosted unsigned builds and persistent Mac deployment
 
-Development pushes to `codex/**`, main pushes, PRs targeting main, and manual dispatch build unsigned **physical iPhone** artifacts on GitHub-hosted macOS. Development does not require a Mac connection. Linux runs bridge contract tests. No self-hosted runner, inbound listener, LaunchAgent, simulator, local compilation, or Apple credential in GitHub/cloud is used.
+Pushes to `codex/**` and `main`, PRs targeting main, and manual dispatch build unsigned physical-iPhone artifacts on GitHub-hosted macOS. Development works with the Mac offline. Hosted Linux runs bridge contract tests. No self-hosted runner, inbound listener, simulator, local Mac compilation, or Apple credential in cloud is needed.
 
-The Mac runs a manually reviewed copy of `scripts/deploy/bridge.py` outside the checkout. It never pulls/runs repository scripts or executes artifact content on the Mac. A foreground `follow` command checks local prerequisites, posts exact-commit readiness, waits for that commit to become main, downloads its successful hosted main-push artifact, signs and installs it. It exits after installation. Do not automate execution of development/PR versions of this bridge; review updates and copy explicitly. The installed app itself is trusted main code and will execute on the phone if opened.
+The Mac runs a reviewed, fixed copy of `scripts/deploy/bridge.py` **outside the checkout**, optionally as a user LaunchAgent. It never updates itself or executes scripts from checkout/artifacts. Updating the bridge requires another explicit review/copy. `watch` responds to fresh cloud readiness requests and automatically installs new trusted-main artifacts. It does not require a manual relaunch per release.
 
-## Current evidence and limits
+## Readiness and promotion protocol
 
-Linux contract tests use mocks, not a Mac/keychain/iPhone. No live deployment has been performed by this task. After the allowlist update, authenticated GitHub API read access succeeded as `abdulsalamk` and repository metadata reports push/admin permissions. This does not prove commit-status write authorization; no readiness status was fabricated from Linux. The user reports 47 previous device UnitChecks passed; these are not deployment checks. Recognition remains unresolved (closed door/cabinet confusion). App/model sources, stored distance correction, and no-beep behavior are unchanged. Installation replaces the same bundle ID without uninstalling or erasing data; back up irreplaceable device data separately. The bridge neither launches the app nor calibrates it.
+1. Cloud `request` (readiness test only) or authorized `promote` posts `deployment/request-ready`, state pending, with a random nonce on the **exact current remote `codex/meta-glasses` SHA**. Requests expire in 120 seconds. Cloud polls for at most 90 seconds by default (configurable 1–120).
+2. The watcher only answers requests by `cloud_actor` in its private Mac config. It checks local signing prerequisites and actual device JSON, then posts `deployment/mac-ready` success/failure with the same nonce. It posts only for a new request or readiness state transition, not for each poll. A device that resumes within the request lifetime can transition from failure to success. Old, unsolicited, malformed or wrong-author requests are ignored.
+3. The cloud gate requires the latest response by `--mac-actor`, newer than this request, matching nonce, fresh (120 seconds), and successful. The request must be by the cloud's authenticated actor. Missing API access, sleeping/offline Mac, stale response, wrong SHA/actor/nonce, or timeout prevents promotion. A new dev tip invalidates the request. `promote` makes a new request automatically; an old success cannot authorize it.
+4. After another gate check, promotion fast-forwards main to that exact SHA, checking old-main ancestry and using an exact remote-main lease against concurrent changes. No squash/merge commit changes the approved SHA. No main push is performed by the readiness-only `request` command.
 
-The user manually dispatched baseline `5ca9722` via GitHub UI, run `39842724144`. That existing manual build is development validation only; the bridge intentionally refuses workflow_dispatch artifacts for installation. Only a successful `push` build of exact current main, correct numeric repository ID, expected workflow path, matching run/attempt, manifest/hash, archive structure and bundle ID can deploy. This does not substitute for branch protection or review of code merged to main. A malicious trusted-main workflow could itself produce malicious code. Only trusted maintainers should write main, readiness statuses or the bridge.
+`devicectl` exit 0 alone is **not** readiness: details can be cached. The bridge parses a temporary `--json-output` file and requires `result.hardwareProperties.reality == physical`, `connectionProperties.pairingState == paired`, `connectionProperties.tunnelState == connected`, `deviceProperties.bootState == booted`, and `developerModeStatus == enabled`. Where supplied, `result.properties.connection.state` must be connected. It also queries lockState JSON: supplied `passcodeRequired` must be false and `unlockedSinceBoot` true. Unknown required connection fields fail closed. Lock-query failure also fails closed; missing optional lock fields are not proof of unlock. This is an observation at check time, never a guarantee the phone remains connected/unlocked. Preflight runs again before signing and installation.
 
-## One-time Mac connection (manual, no agent installation)
+Anyone with the trusted account's status-write credential could spoof its status: this is not hardware attestation. Only trusted maintainers/credentials may write main or readiness statuses. No public-PR code receives Mac credentials. Direct manual main pushes bypass this client gate. Server branch protection/rulesets, review requirements and bypass restrictions must be configured separately by the owner if enforcement for every writer is needed; this task does not register/change them. Requiring a status alone on GitHub does not enforce nonce freshness; use the reviewed promotion command for that.
 
-Use the existing Mac with Xcode command-line tools including `devicectl`, Python 3.11+, Git, and GitHub CLI `gh`. A full Xcode installation supplies device/signing tools; no `xcodebuild` runs locally. Keep the existing paired physical iPhone connected, Developer Mode enabled, trusted and unlocked. An online Mac is insufficient: readiness makes a live `devicectl device info details` query and checks a matching, nonexpired development profile/certificate. This cannot guarantee the phone stays connected/unlocked or the keychain permits later signing. All failures stop deployment.
+## Automatic deployment and private state
 
-1. Fetch the reviewed development commit into your existing Mac checkout using ordinary Git. Do not reset or discard local changes. Review `scripts/deploy/bridge.py`, both workflows, and tests. Copy the reviewed bridge into a user-controlled directory outside any repo, for example:
+On its first successful poll, `watch` durably records and **skips existing main**, even if that commit has an artifact. It answers readiness requests without installing that baseline. Each later main SHA is eligible only for a successful `push` build of the expected workflow in numeric repository `1427983832`, with matching main SHA, run/attempt, manifest/hash, safe archive paths and bundle ID. PR, fork, development and workflow_dispatch artifacts cannot deploy.
 
-   ```sh
-   mkdir -p "$HOME/.local/share/iseeyou-deploy" "$HOME/.config/iseeyou-deploy"
-   chmod 700 "$HOME/.local/share/iseeyou-deploy" "$HOME/.config/iseeyou-deploy"
-   # Run from the reviewed checkout; inspect this file before copying.
-   cp scripts/deploy/bridge.py "$HOME/.local/share/iseeyou-deploy/bridge.py"
-   chmod 600 "$HOME/.local/share/iseeyou-deploy/bridge.py"
-   ```
+The watcher waits through pending builds and retries transient API, device, download, signing and install failures on subsequent polls/resume. Artifact download has a separate configurable timeout **default 1800 seconds, minimum 1800** (`download_timeout_seconds`), so slow Mac downloads are not killed by the ordinary 120-second subprocess limit. A download blocks that watcher iteration; readiness requests during a long download can time out safely. No readiness expires into automatic permission to merge.
 
-2. Discover local prerequisites yourself; do not send their output to cloud/chat:
+After success, private mode-600 state records `last_installed`; unchanged main is not repeatedly installed, including across restarts. A per-user file lock prevents parallel watchers using the same state. State writes are atomic. Do not delete/reset state to fix a transient error: that would re-baseline and skip the current pending release. A crash after successful install but before state persistence can cause one reinstall of the same SHA; installation is retryable, not transactionally exactly-once. With multiple new main commits while offline, it deploys current main rather than replaying superseded releases. Log messages exclude CLI stderr, signed URLs, UDIDs, identities, profiles and credentials.
 
-   ```sh
-   xcrun devicectl list devices
-   security find-identity -v -p codesigning
-   ```
+Artifacts are data only on Mac. ZIP traversal, symlinks, special files and duplicate paths are rejected. The bridge signs nested frameworks/dylibs first, then the app with local profile/entitlements, verifies signatures, rechecks current main and live device readiness, and uses `devicectl device install app`. It never uninstalls, launches the app, recalibrates, exports models, compiles locally or runs a simulator. The installed iPhone app is trusted-main code and executes if opened. Installation preserves the existing bundle identifier `com.iseeyou.research` and does not erase its container; back up irreplaceable data separately.
 
-   Find the existing development `.mobileprovision` profile (Xcode may store it in `~/Library/Developer/Xcode/UserData/Provisioning Profiles` or `~/Library/MobileDevice/Provisioning Profiles`). The bridge does **not** create/renew profiles, register devices/App IDs, log into Apple, modify keychains, or request certificates. If no valid matching profile/private key exists, use the Mac's existing Apple/Xcode provisioning UI separately; do not fall back to compilation. Profile must include the physical phone UDID and selected certificate, support `com.iseeyou.research`, and match your team. Prefer an explicit App ID profile. App extensions are rejected because they require separate provisioning. iOS framework symlinks are rejected; if a future artifact requires them, review and implement safe handling rather than relaxing checks blindly.
+## One-time Mac wiring (coordinator/user only)
 
-3. Create `~/.config/iseeyou-deploy/config.json` locally, mode `600`. These personal values stay on Mac, outside the checkout. Alternatively use ignored `scripts/deploy/.local/config.json`; never commit it.
+No agent is installed or registered by the cloud task. Use existing Xcode/device tools, Python 3.11+, and `/opt/homebrew/bin/gh` with existing keyring authentication. A user LaunchAgent runs while that user is logged in, resumes after sleep and retries; it cannot run while Mac is powered off/logged out or bypass an unavailable/locked signing keychain. Keep the paired physical iPhone connected, trusted, Developer Mode enabled and unlocked when necessary.
 
-   ```json
-   {
-     "device_udid": "YOUR_PHYSICAL_IPHONE_UDID",
-     "signing_identity": "40_HEX_CERTIFICATE_SHA1_FROM_SECURITY_FIND_IDENTITY",
-     "team_id": "YOUR_TEAM_ID",
-     "profile": "/absolute/local/path/development.mobileprovision",
-     "bundle_id": "com.iseeyou.research",
-     "github_auth": "git-credential"
-   }
-   ```
-
-   ```sh
-   chmod 600 "$HOME/.config/iseeyou-deploy/config.json"
-   ```
-
-   `github_auth: git-credential` uses the Mac's existing HTTPS GitHub credential helper via `git credential fill` and passes its password/token **in memory only** to `gh` subprocesses. No token is printed, written to disk, put in command arguments or sent to cloud. Never run `git credential fill` manually with output visible, shell tracing, or debug logging. The helper itself is existing Mac configuration; this bridge does not install or modify it. If the helper has no credential, stop; do not invent one. Alternatively choose `github_auth: gh` to reuse existing `gh` authentication. A Git credential can lack API permissions even when clone/push works.
-
-   Required GitHub abilities: repository metadata/content read, Actions runs/artifacts read, and commit statuses write for readiness. For a fine-grained local token, limit to this repository, Contents read, Actions read, Commit statuses write; classic tokens may be broader. Do not create/register access as part of cloud setup. Cloud promotion separately requires API read and Git main push authorization. The status author returned by GitHub must be the expected Mac account (`--mac-actor`); it may be the same account as cloud, so status attribution is not cryptographic hardware attestation. Anyone with that credential could spoof readiness. Use only trusted maintainers/credentials; no public-PR code or runner gets them.
-
-## Exact next connection step
-
-After reviewing/copying the bridge and filling local config, start this foreground command **on the Mac**, replacing the full SHA with the pushed deployment-development commit printed by the cloud task:
+From a **reviewed** checkout at the final pushed development revision, copy only the reviewed bridge outside the repository:
 
 ```sh
-python3 "$HOME/.local/share/iseeyou-deploy/bridge.py" follow \
-  --config "$HOME/.config/iseeyou-deploy/config.json" FULL_DEVELOPMENT_SHA
+mkdir -p "$HOME/.local/share/iseeyou-deploy" "$HOME/.config/iseeyou-deploy" \
+  "$HOME/.local/state/iseeyou-deploy" "$HOME/Library/LaunchAgents"
+chmod 700 "$HOME/.local/share/iseeyou-deploy" "$HOME/.config/iseeyou-deploy" \
+  "$HOME/.local/state/iseeyou-deploy"
+cp scripts/deploy/bridge.py "$HOME/.local/share/iseeyou-deploy/bridge.py"
+chmod 600 "$HOME/.local/share/iseeyou-deploy/bridge.py"
 ```
 
-Leave it running. It posts pending then success/failure readiness and waits for the exact SHA to be main (default 30 minutes). Readiness expires in **five minutes** and is never renewed automatically; rerun if a promotion has not occurred in that window. Tell the cloud task only that readiness succeeded and your GitHub status-author login, not any personal device/signing details. This command authorizes a later install after main promotion; do not start it until you intend that. To test readiness alone without waiting/installing, use `ready` instead of `follow` with the same arguments.
+Preserve the already-prepared private `~/.config/iseeyou-deploy/config.json`; add the non-secret options below. Do not upload its personal values. Alternatively keep config under ignored `scripts/deploy/.local/`. Example structure only:
 
-## Promotion gate (not run by this task)
-
-With explicit user confirmation that the Mac bridge is ready, from the cloud checkout:
+```json
+{
+  "device_udid": "LOCAL_PHYSICAL_IPHONE_UDID",
+  "signing_identity": "LOCAL_40_HEX_CERTIFICATE_SHA1",
+  "team_id": "LOCAL_TEAM_ID",
+  "profile": "/absolute/local/path/development.mobileprovision",
+  "bundle_id": "com.iseeyou.research",
+  "github_auth": "gh",
+  "cloud_actor": "abdulsalamk",
+  "download_timeout_seconds": 3600
+}
+```
 
 ```sh
-python3 scripts/deploy/bridge.py gate FULL_DEVELOPMENT_SHA --mac-actor EXPECTED_GITHUB_LOGIN
-# Only when separately authorized to change main:
-python3 scripts/deploy/bridge.py promote FULL_DEVELOPMENT_SHA \
-  --mac-actor EXPECTED_GITHUB_LOGIN --confirm-main
+chmod 600 "$HOME/.config/iseeyou-deploy/config.json"
 ```
 
-`ready`/`follow` and `gate`/`promote` first require the candidate to be the current remote `codex/meta-glasses` tip. `gate`/`promote` use API status on that exact full candidate SHA, require newest readiness success by the specified actor, and refuse if missing/failed/pending/future-dated/older than 300 seconds or if API access is unavailable. Promotion requires a clean checkout, an ancestor main, and an exact remote-main lease; it permits only a fast-forward of main to the approved candidate, with no synthetic merge SHA. It does not bypass GitHub protection. The lease guards a concurrent main update; ancestry is checked before push, so no divergent main history is overwritten. A fresh check observes readiness at one instant; no network design can guarantee the Mac stays online afterward.
+No credential export is needed with `github_auth: gh`. The existing Mac GitHub identity needs metadata/Contents read, Actions read, and Commit statuses write. Cloud needs these plus Git main push permission. Git push alone does not establish API/status-write capability. Optional `github_auth: git-credential` reads the existing Mac HTTPS credential helper **in memory only**, passing it to `gh` subprocess environment; it does not print/store it or change helpers. Never run helper commands with output visible or enable shell/API debug logging. No new credential or account registration is performed.
 
-Direct manual main pushes/merges can bypass this client-side gate. A server-side rule is **not configured by this task**. Before relying on enforcement for all writers, a trusted owner must configure main protection/rulesets to require `deployment/mac-ready` and appropriate review/checks, and restrict bypass/main writes. Protect against status spoofing according to your available GitHub plan/actor controls. Cloud development pushes remain possible with the Mac offline. Conventional GitHub merge commits/squash commits change SHA and are not supported by this exact-SHA promotion path.
+The existing local certificate/private key and nonexpired profile must match the app, team and physical phone UDID; the certificate must be listed in the profile. Discover these locally with `security find-identity -v -p codesigning` and Xcode's existing provisioning UI; do not send output to cloud/chat. Common profile directories are `~/Library/Developer/Xcode/UserData/Provisioning Profiles` and `~/Library/MobileDevice/Provisioning Profiles`. The bridge does not renew profiles, register devices/App IDs, log into Apple or unlock keychains. If provisioning is missing/expired, fix it locally through supported Apple tooling without a compilation fallback. App extensions require separate profiles and are rejected; iOS framework symlinks are also rejected rather than silently trusted.
 
-The Mac then waits for hosted build success (up to another 30 minutes), verifies provenance and SHA-256, rejects archive traversal/symlinks, signs nested frameworks/dylibs before the app with the local profile/identity, verifies signatures, rechecks main and installs with `xcrun devicectl device install app`. It never uninstalls, launches, calibrates, compiles locally or uses a simulator. Capture the hosted run URL, deployed SHA and successful install result for actual end-to-end evidence. Verify on-device speech/calibration separately without recalibrating. If install fails, fix the local prerequisite and rerun `deploy --config ...` to deploy **current trusted main**; no unsigned development/manual/PR artifacts are accepted.
+First test the watcher in the foreground; its initial poll establishes the skipped-main baseline:
 
-## Offline checks and references
+```sh
+PATH="/opt/homebrew/bin:/usr/local/bin:$PATH" python3 \
+  "$HOME/.local/share/iseeyou-deploy/bridge.py" watch \
+  --config "$HOME/.config/iseeyou-deploy/config.json" \
+  --state "$HOME/.local/state/iseeyou-deploy/state.json"
+```
+
+The coordinator can then run the cloud readiness-only command below. Stop the foreground watcher before starting the LaunchAgent; both use the same state and lock.
+
+Review `scripts/deploy/com.iseeyou.deploy.plist.in` and `render_agent.py`. The template includes `/opt/homebrew/bin` in PATH, mode-077 umask, user-controlled log/state paths, `RunAtLoad`, `KeepAlive`, and a 30-second restart throttle. Rendering creates a plist but does **not** register/start it; refuses to overwrite an existing plist. Use the same Python 3.11+ interpreter that passed the foreground test:
+
+```sh
+python3 scripts/deploy/render_agent.py \
+  --output "$HOME/Library/LaunchAgents/com.iseeyou.deploy.plist"
+plutil -lint "$HOME/Library/LaunchAgents/com.iseeyou.deploy.plist"
+# User/coordinator only, after reviewing the rendered file:
+launchctl bootstrap "gui/$(id -u)" "$HOME/Library/LaunchAgents/com.iseeyou.deploy.plist"
+launchctl print "gui/$(id -u)/com.iseeyou.deploy"
+```
+
+To stop/unregister it later (preserves private state):
+
+```sh
+launchctl bootout "gui/$(id -u)" "$HOME/Library/LaunchAgents/com.iseeyou.deploy.plist"
+```
+
+Do not configure auto-updating checkout scripts, a self-hosted runner, public network access or exported Apple/GitHub secrets. Keep logs private; use user log rotation if running indefinitely.
+
+## Cloud connection test and later authorized promotion
+
+After the coordinator starts the reviewed watcher, test without merging:
+
+```sh
+python3 scripts/deploy/bridge.py request FULL_CURRENT_DEVELOPMENT_SHA \
+  --mac-actor abdulsalamk --wait-seconds 90
+```
+
+Only after explicit authorization to promote:
+
+```sh
+python3 scripts/deploy/bridge.py promote FULL_CURRENT_DEVELOPMENT_SHA \
+  --mac-actor abdulsalamk --wait-seconds 90 --confirm-main
+```
+
+This makes a **new** nonce-bound readiness request, waits bounded time and gates again before touching main. The watcher then installs the successful hosted main-push artifact automatically, including after sleep/resume. Capture the main SHA, hosted run URL and successful real install result for end-to-end evidence. `deploy --config ...` remains an explicit manual recovery command for current trusted main, not a fallback build path.
+
+## Evidence, tests and references
+
+Linux tests mock Apple tools, GitHub and device operations. They include cached/offline exit-0 details, device properties, request freshness/author/nonce, superseded SHA, bounded offline wait/no push, initial-main skip, retries/private state/deduplication, archive safety and signing/install order. No live Mac signing/install or LaunchAgent registration has been performed by the cloud task. Previous 47 device UnitChecks and baseline manual hosted build `39842724144` are prior evidence, not a test of this new bridge. Development Git push/API reads work; Mac status-write readiness remains to be verified live.
+
+App/model code, calibration and no-beep behavior remain unchanged; closed-door/cabinet recognition is unresolved. Environment repository bindings are never changed by this pipeline.
 
 ```sh
 python3 -m unittest discover -s tests -v
@@ -90,11 +123,4 @@ python3 scripts/deploy/bridge.py --help
 git diff --check
 ```
 
-GitHub REST documentation below was read after the user allowed `api.github.com` and `docs.github.com`. API metadata, workflow-run fields and local-token permission requirements were checked. Action commit pins were verified against GitHub tag refs. Other CLI/Apple references are provided for Mac-side verification; those sites were not added to cloud network access:
-
-- https://docs.github.com/en/rest/commits/statuses
-- https://docs.github.com/en/rest/actions/workflow-runs
-- https://cli.github.com/manual/gh_run_download
-- https://git-scm.com/docs/git-credential
-- https://developer.apple.com/documentation/xcode/installing-and-managing-simulator-and-device-apps
-- Local Mac authoritative command help: `xcrun devicectl help`, `xcrun devicectl device install app --help`, `codesign --help`, `security help cms`.
+GitHub REST documentation was read via the two user-allowed domains; no additional domains were added. Artifact downloads from cloud may be denied at GitHub's blob-storage host; Mac download connectivity is independently required. References: [statuses](https://docs.github.com/en/rest/commits/statuses), [workflow runs](https://docs.github.com/en/rest/actions/workflow-runs), [artifact download](https://cli.github.com/manual/gh_run_download). Authoritative local Mac help: `xcrun devicectl help`, `codesign --help`, `security help cms`.

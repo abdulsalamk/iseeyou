@@ -103,7 +103,7 @@ class BridgeTests(unittest.TestCase):
         def command(*args):
             commands.append(args)
             return b'' if args[1] != 'rev-parse' else ('b'*40).encode()
-        with patch.object(b, 'run', side_effect=command), patch.object(b, 'gate', side_effect=ValueError('offline')):
+        with patch.object(b, 'run', side_effect=command), patch.object(b, 'request_ready', side_effect=ValueError('offline')):
             with self.assertRaises(ValueError):
                 b.promote(SHA, 'mac-user')
         self.assertFalse(any('push' in args for args in commands))
@@ -113,7 +113,7 @@ class BridgeTests(unittest.TestCase):
         def command(*args):
             commands.append(args)
             return b'' if args[1] != 'rev-parse' else ('b'*40).encode()
-        with patch.object(b, 'run', side_effect=command), patch.object(b, 'gate') as gate:
+        with patch.object(b, 'run', side_effect=command), patch.object(b, 'request_ready'), patch.object(b, 'gate') as gate:
             b.promote(SHA, 'mac-user')
         gate.assert_called_once_with(SHA, 'mac-user')
         self.assertIn(('git', 'push', '--force-with-lease=refs/heads/main:'+'b'*40,
@@ -127,6 +127,7 @@ class BridgeTests(unittest.TestCase):
             def command(*args, **kwargs):
                 commands.append(args)
                 if args[:3] == ('gh', 'run', 'download'):
+                    self.assertEqual(kwargs['timeout'], 2400)
                     root = Path(args[-1]); archive = root/'ISeeYou.app.zip'
                     with zipfile.ZipFile(archive, 'w') as z:
                         z.writestr('ISeeYou.app/Info.plist', plistlib.dumps(dict(CFBundleIdentifier='com.iseeyou.research', CFBundleSupportedPlatforms=['iPhoneOS'])))
@@ -139,7 +140,7 @@ class BridgeTests(unittest.TestCase):
                 if '/actions/workflows/' in path: return {'workflow_runs': [info()]}
                 if '/actions/runs/' in path: return info()
                 return {'id': b.REPO_ID}
-            config = dict(profile=str(profile), bundle_id='com.iseeyou.research', signing_identity='C'*40, device_udid='phone')
+            config = dict(download_timeout_seconds=2400, profile=str(profile), bundle_id='com.iseeyou.research', signing_identity='C'*40, device_udid='phone')
             with patch.object(b, 'api', side_effect=api), patch.object(b, 'run', side_effect=command), patch.object(b, 'mac_preflight', return_value={}):
                 b.deploy(config, 0, expected_sha=SHA)
             signed = [c for c in commands if c[0]=='codesign' and '--force' in c]
@@ -153,12 +154,6 @@ class BridgeTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 b.deploy({}, 0, expected_sha=SHA)
             run.assert_not_called()
-
-    def test_readiness_failure_posts_failure(self):
-        with patch.object(b, 'repo_check'), patch.object(b, 'current_development'), patch.object(b, 'post_status') as post, patch.object(b, 'mac_preflight', side_effect=ValueError('locked')):
-            with self.assertRaises(ValueError): b.announce(SHA, {})
-        self.assertEqual(post.call_args_list, [unittest.mock.call(SHA, 'pending'), unittest.mock.call(SHA, 'failure')])
-
 
     def test_api_failure_blocks_promotion(self):
         with patch.object(b, 'api', side_effect=OSError('API inaccessible')), patch.object(b, 'run') as run:
@@ -200,6 +195,148 @@ class BridgeTests(unittest.TestCase):
             with self.assertRaises(ValueError): b.current_development(SHA)
         with patch.object(b, 'api', return_value={'object': {'sha': SHA}}):
             b.current_development(SHA)
+
+    def test_device_json_rejects_cached_offline_and_nonphysical(self):
+        details = {'result': {'hardwareProperties': {'reality': 'physical'},
+                   'connectionProperties': {'pairingState': 'paired', 'tunnelState': 'connected'},
+                   'deviceProperties': {'bootState': 'booted', 'developerModeStatus': 'enabled'},
+                   'properties': {'connection': {'state': 'connected'}}}}
+        lock = {'result': {'passcodeRequired': False, 'unlockedSinceBoot': True}}
+        b.device_ready(details, lock)
+        import copy
+        for section, field, value in [('hardwareProperties','reality','simulated'),
+            ('connectionProperties','tunnelState','disconnected'),
+            ('connectionProperties','pairingState','unpaired'),
+            ('deviceProperties','bootState','unknown'),
+            ('deviceProperties','developerModeStatus','disabled')]:
+            bad = copy.deepcopy(details); bad['result'][section][field] = value
+            with self.subTest(field=field), self.assertRaises(ValueError): b.device_ready(bad, lock)
+        bad = copy.deepcopy(details); bad['result']['properties']['connection']['state'] = 'disconnected'
+        with self.assertRaises(ValueError): b.device_ready(bad, lock)
+        with self.assertRaises(ValueError): b.device_ready(details, {'result': {'passcodeRequired': True, 'unlockedSinceBoot': True}})
+        with self.assertRaises(KeyError): b.device_ready({'result': {}}, lock)
+
+    def test_exit_zero_cached_details_is_not_mac_readiness(self):
+        def run(*args, **kwargs):
+            if args[0] == 'security': return ('C'*40).encode()
+            output = Path(args[args.index('--json-output')+1])
+            if 'details' in args:
+                output.write_text(json.dumps({'result': {'hardwareProperties': {'reality': 'physical'},
+                    'connectionProperties': {'pairingState': 'paired', 'tunnelState': 'disconnected'},
+                    'deviceProperties': {'bootState': 'booted', 'developerModeStatus': 'enabled'}}}))
+            else:
+                output.write_text(json.dumps({'result': {'passcodeRequired': False, 'unlockedSinceBoot': True}}))
+            return b''  # devicectl exit 0, but data says offline.
+        with patch.object(b.sys, 'platform', 'darwin'), patch.object(b, 'run', side_effect=run):
+            with self.assertRaises(ValueError):
+                b.mac_preflight({'bundle_id':'com.iseeyou.research','signing_identity':'C'*40,'device_udid':'phone'})
+
+    def test_request_freshness_author_and_nonce(self):
+        request = dict(status(state='pending', actor='cloud'), context=b.REQUEST_CONTEXT,
+                       description='request-ready:'+'f'*32)
+        self.assertEqual(b.fresh_request([request], 'cloud', NOW), request)
+        for change in (dict(creator={'login':'stranger'}), dict(state='success'),
+                       dict(description='not-a-request'),
+                       dict(created_at=(NOW-dt.timedelta(seconds=121)).isoformat()),
+                       dict(created_at=(NOW+dt.timedelta(seconds=1)).isoformat())):
+            with self.subTest(change=change), self.assertRaises(ValueError):
+                b.fresh_request([dict(request, **change)], 'cloud', NOW)
+        response = dict(status(ident=2), description='ready:'+'f'*32)
+        b.readiness([response], 'mac-user', NOW, request=request)
+        with self.assertRaises(ValueError):
+            b.readiness([dict(response, description='ready:'+'e'*32)], 'mac-user', NOW, request=request)
+        with self.assertRaises(ValueError):
+            b.readiness([dict(response, id=0)], 'mac-user', NOW, request=request)
+
+    def test_request_offline_wait_expires_without_merge(self):
+        now = dt.datetime.now(dt.timezone.utc).isoformat()
+        request = dict(context=b.REQUEST_CONTEXT, id=1, state='pending',
+                       creator={'login':'cloud'}, created_at=now, description='request-ready:'+'f'*32)
+        def api(path, payload=None):
+            if path == 'user': return {'login':'cloud'}
+            return request
+        with patch.object(b, 'repo_check'), patch.object(b, 'current_development'), patch.object(b, 'api', side_effect=api), patch.object(b, 'status_list', return_value=[request]), patch.object(b.time, 'monotonic', side_effect=[0, 91]):
+            with self.assertRaises(ValueError): b.request_ready(SHA, 'mac-user', 90)
+
+    def test_watcher_skips_initial_main_and_retries_install(self):
+        def api(path):
+            if '/commits/main' in path: return {'sha': current[0]}
+            return {'object': {'sha': SHA}}
+        with tempfile.TemporaryDirectory() as d:
+            state = {}; path = Path(d)/'state.json'; current = ['b'*40]
+            with patch.object(b, 'api', side_effect=api), patch.object(b, 'answer_request'), patch.object(b, 'deploy') as deploy:
+                b.watch_once({}, state, path)
+                deploy.assert_not_called()
+                current[0] = SHA; deploy.side_effect = ValueError('phone asleep')
+                with self.assertRaises(ValueError): b.watch_once({}, state, path)
+                self.assertNotIn('last_installed', b.load_state(path))
+                deploy.side_effect = None
+                b.watch_once({}, state, path)
+                self.assertEqual(b.load_state(path)['last_installed'], SHA)
+                deploy.reset_mock(); b.watch_once({}, state, path); deploy.assert_not_called()
+                self.assertEqual(path.stat().st_mode & 0o777, 0o600)
+
+    def test_watch_answers_once_per_request_or_state_change(self):
+        request = dict(context=b.REQUEST_CONTEXT, id=10, state='pending', creator={'login':'cloud'},
+                       created_at=dt.datetime.now(dt.timezone.utc).isoformat(), description='request-ready:'+'f'*32)
+        with tempfile.TemporaryDirectory() as d:
+            state = {}; path = Path(d)/'state.json'
+            with patch.object(b, 'status_list', return_value=[request]), patch.object(b, 'current_development') as current, patch.object(b, 'api') as api, patch.object(b, 'mac_preflight') as preflight:
+                b.answer_request(SHA, {'cloud_actor':'cloud'}, state, path)
+                b.answer_request(SHA, {'cloud_actor':'cloud'}, state, path)
+                self.assertEqual(api.call_count, 1)
+                self.assertEqual(current.call_args.args, (SHA,))
+                preflight.side_effect = ValueError('offline')
+                b.answer_request(SHA, {'cloud_actor':'cloud'}, state, path)
+                self.assertEqual(api.call_count, 2)
+                self.assertEqual(api.call_args.args[1]['state'], 'failure')
+                b.answer_request(SHA, {'cloud_actor':'cloud'}, state, path)
+                self.assertEqual(api.call_count, 2)
+
+    def test_watch_ignores_untrusted_or_stale_requests(self):
+        request = dict(context=b.REQUEST_CONTEXT, id=10, state='pending', creator={'login':'stranger'},
+                       created_at=dt.datetime.now(dt.timezone.utc).isoformat(), description='request-ready:'+'f'*32)
+        with patch.object(b, 'status_list', return_value=[request]), patch.object(b, 'mac_preflight') as preflight, patch.object(b, 'api') as api:
+            b.answer_request(SHA, {'cloud_actor':'cloud'}, {}, Path('/unused'))
+            preflight.assert_not_called(); api.assert_not_called()
+
+    def test_launchagent_template_renders_private_paths_and_homebrew(self):
+        spec = importlib.util.spec_from_file_location('renderer', Path(__file__).parents[1]/'scripts/deploy/render_agent.py')
+        renderer = importlib.util.module_from_spec(spec); spec.loader.exec_module(renderer)
+        template = (Path(__file__).parents[1]/'scripts/deploy/com.iseeyou.deploy.plist.in').read_bytes()
+        data = plistlib.loads(renderer.render(template, '/Users/Example & Name', '/opt/homebrew/bin/python3'))
+        self.assertEqual(data['ProgramArguments'][0], '/opt/homebrew/bin/python3')
+        self.assertIn('watch', data['ProgramArguments'])
+        self.assertIn('/Users/Example & Name/.local/state/iseeyou-deploy/state.json', data['ProgramArguments'])
+        self.assertTrue(data['KeepAlive']); self.assertEqual(data['Umask'], 0o077)
+        self.assertIn('/opt/homebrew/bin', data['EnvironmentVariables']['PATH'])
+        self.assertNotIn('__HOME__', str(data))
+        with self.assertRaises(ValueError): renderer.render(template, 'relative', '/usr/bin/python3')
+
+    def test_device_optional_lock_fields_do_not_override_disconnect(self):
+        details = {'result': {'hardwareProperties': {'reality': 'physical'},
+                   'connectionProperties': {'pairingState':'paired','tunnelState': 'connected'},
+                   'deviceProperties': {'bootState': 'booted', 'developerModeStatus': 'enabled'}}}
+        b.device_ready(details, {'result': {}})
+        details['result']['connectionProperties']['tunnelState'] = 'disconnected'
+        with self.assertRaises(ValueError): b.device_ready(details, {'result': {}})
+
+    def test_watcher_rechecks_exact_dev_tip_before_posting(self):
+        request = dict(context=b.REQUEST_CONTEXT, id=10, state='pending', creator={'login':'cloud'},
+                       created_at=dt.datetime.now(dt.timezone.utc).isoformat(), description='request-ready:'+'f'*32)
+        with patch.object(b, 'status_list', return_value=[request]), patch.object(b, 'mac_preflight'), patch.object(b, 'current_development', side_effect=ValueError('dev advanced')), patch.object(b, 'api') as api:
+            with self.assertRaises(ValueError): b.answer_request(SHA, {'cloud_actor':'cloud'}, {}, Path('/unused'))
+            api.assert_not_called()
+
+    def test_private_state_directory_and_symlink_refusal(self):
+        with tempfile.TemporaryDirectory() as d:
+            directory = Path(d)/'state'; directory.mkdir(mode=0o755)
+            with self.assertRaises(ValueError): b.save_state(directory/'state.json', {})
+            directory.chmod(0o700)
+            target = directory/'target'; target.write_text('preserved')
+            state = directory/'state.json'; state.symlink_to(target)
+            with self.assertRaises(ValueError): b.save_state(state, {})
+            self.assertEqual(target.read_text(), 'preserved')
 
 
 if __name__ == '__main__':

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Manual, trusted-main-only Mac bridge. No daemon, checkout execution or compilation."""
+"""Trusted-main-only Mac pull/sign/install bridge. No checkout execution or compilation."""
 import argparse
 import datetime as dt
 import hashlib
@@ -15,10 +15,14 @@ import sys
 import tempfile
 import time
 import zipfile
+import uuid
+import fcntl
 
 REPO = 'abdulsalamk/iseeyou'
 REPO_ID = 1427983832
 CONTEXT = 'deployment/mac-ready'
+REQUEST_CONTEXT = 'deployment/request-ready'
+REQUEST_TTL = 120
 DEVELOPMENT_BRANCH = 'codex/meta-glasses'
 WORKFLOW = '.github/workflows/ios-build.yml'
 ARTIFACT = 'ISeeYou-unsigned-requires-signing'
@@ -57,7 +61,7 @@ def repo_check():
     require(api(f'repos/{REPO}')['id'] == REPO_ID, 'Repository identity changed')
 
 
-def readiness(statuses, actor, now=None):
+def readiness(statuses, actor, now=None, request=None):
     """Newest matching context wins, including pending/failure; never reuse old success."""
     now = now or dt.datetime.now(dt.timezone.utc)
     matches = [s for s in statuses if s['context'] == CONTEXT]
@@ -66,7 +70,11 @@ def readiness(statuses, actor, now=None):
     age = (now - dt.datetime.fromisoformat(latest['created_at'].replace('Z', '+00:00'))).total_seconds()
     require(latest['creator']['login'] == actor, 'Unexpected readiness status author')
     require(latest['state'] == 'success', 'Mac readiness offline, pending or failed')
-    require(0 <= age <= 300, 'Mac readiness expired or has future timestamp')
+    require(0 <= age <= 120, 'Mac readiness expired or has future timestamp')
+    if request is not None:
+        require(latest['id'] > request['id'], 'Readiness predates request')
+        require(latest.get('description') == 'ready:' + request['description'].split(':')[1],
+                'Readiness does not answer this exact request')
 
 
 def current_development(sha):
@@ -74,12 +82,55 @@ def current_development(sha):
     require(ref['object']['sha'] == sha, 'Candidate is not current development branch tip')
 
 
+def status_list(sha):
+    return api(f'repos/{REPO}/commits/{sha}/statuses?per_page=100')
+
+
+def fresh_request(statuses, actor, now=None):
+    now = now or dt.datetime.now(dt.timezone.utc)
+    requests = [s for s in statuses if s['context'] == REQUEST_CONTEXT]
+    require(bool(requests), 'No cloud readiness request')
+    request = max(requests, key=lambda s: s['id'])
+    age = (now - dt.datetime.fromisoformat(request['created_at'].replace('Z', '+00:00'))).total_seconds()
+    require(request['creator']['login'] == actor, 'Untrusted readiness requester')
+    require(request['state'] == 'pending', 'Readiness request is not pending')
+    require(0 <= age <= REQUEST_TTL, 'Readiness request stale or future-dated')
+    require(bool(re.fullmatch(r'request-ready:[0-9a-f]{32}', request.get('description', ''))),
+            'Malformed readiness request')
+    return request
+
+
 def gate(sha, actor):
     commit(sha)
     repo_check()
     current_development(sha)
-    statuses = api(f'repos/{REPO}/commits/{sha}/statuses?per_page=100')
-    readiness(statuses, actor)
+    statuses = status_list(sha)
+    request = fresh_request(statuses, api('user')['login'])
+    readiness(statuses, actor, request=request)
+
+
+def request_ready(sha, actor, timeout=90):
+    commit(sha)
+    require(0 < timeout <= REQUEST_TTL, 'Readiness wait must be 1..120 seconds')
+    repo_check()
+    current_development(sha)
+    who = api('user')['login']
+    issued = api(f'repos/{REPO}/statuses/{sha}', {
+        'context': REQUEST_CONTEXT, 'state': 'pending',
+        'description': 'request-ready:' + uuid.uuid4().hex})
+    deadline = time.monotonic() + timeout
+    while True:
+        current_development(sha)
+        statuses = status_list(sha)
+        request = fresh_request(statuses, who)
+        require(request['id'] == issued['id'], 'Readiness request superseded; retry explicitly')
+        try:
+            readiness(statuses, actor, request=request)
+            return
+        except ValueError:
+            # A sleeping/offline Mac can resume during this bounded wait.
+            require(time.monotonic() < deadline, 'Mac offline/unknown: readiness wait expired')
+            time.sleep(min(5, max(0, deadline - time.monotonic())))
 
 
 def profile_entitlements(profile, bundle, udid, team, now=None):
@@ -109,8 +160,15 @@ def mac_preflight(config):
     require(bool(re.fullmatch(r'[A-Fa-f0-9]{40}', identity)), 'Use certificate SHA-1 identity, not a shell expression/name')
     identities = run('security', 'find-identity', '-v', '-p', 'codesigning').decode()
     require(identity.upper() in identities.upper(), 'Signing identity unavailable in Mac keychain')
-    # A successful live device query is required; host online alone is insufficient.
-    run('xcrun', 'devicectl', 'device', 'info', 'details', '--device', config['device_udid'])
+    # Exit 0 can return cached offline details. Inspect current connection fields.
+    with tempfile.TemporaryDirectory(prefix='iseeyou-device-') as folder:
+        details = Path(folder) / 'details.json'
+        lock = Path(folder) / 'lock.json'
+        run('xcrun', 'devicectl', 'device', 'info', 'details', '--device', config['device_udid'],
+            '--json-output', str(details))
+        run('xcrun', 'devicectl', 'device', 'info', 'lockState', '--device', config['device_udid'],
+            '--json-output', str(lock))
+        device_ready(json.loads(details.read_text()), json.loads(lock.read_text()))
     profile = plistlib.loads(run('security', 'cms', '-D', '-i', config['profile']))
     ent = profile_entitlements(profile, config['bundle_id'], config['device_udid'], config['team_id'])
     cert_hashes = [hashlib.sha1(c).hexdigest().upper() for c in profile['DeveloperCertificates']]
@@ -118,24 +176,116 @@ def mac_preflight(config):
     return ent
 
 
-def post_status(sha, state):
-    api(f'repos/{REPO}/statuses/{sha}', {'state': state, 'context': CONTEXT,
-        'description': {'pending': 'Checking Mac, iPhone and local signing prerequisites',
-                        'success': 'Mac/device/signing checked; readiness expires in 5 minutes',
-                        'failure': 'Mac bridge prerequisite check failed'}[state]})
+def device_ready(details, lock):
+    result = details['result']
+    require(result['hardwareProperties']['reality'] == 'physical', 'Physical iPhone required')
+    require(result['connectionProperties']['pairingState'] == 'paired', 'iPhone is not paired')
+    require(result['connectionProperties']['tunnelState'] == 'connected', 'iPhone tunnel disconnected/cached')
+    require(result['deviceProperties']['bootState'] == 'booted', 'iPhone not booted')
+    require(result['deviceProperties']['developerModeStatus'] == 'enabled', 'Developer Mode disabled')
+    connection = result.get('properties', {}).get('connection')
+    if connection is not None:
+        require(connection.get('state') == 'connected', 'iPhone connection not live')
+    lock_result = lock['result']
+    if 'passcodeRequired' in lock_result:
+        require(lock_result['passcodeRequired'] is False, 'iPhone requires passcode')
+    if 'unlockedSinceBoot' in lock_result:
+        require(lock_result['unlockedSinceBoot'] is True, 'iPhone not unlocked since boot')
 
 
-def announce(sha, config):
-    commit(sha)
-    repo_check()
-    current_development(sha)
-    post_status(sha, 'pending')
+def private_directory(path):
+    path = Path(path)
+    path.mkdir(mode=0o700, parents=True, exist_ok=True)
+    require(not path.is_symlink() and path.stat().st_uid == os.getuid(), 'Private directory must belong to this user')
+    require(stat.S_IMODE(path.stat().st_mode) & 0o077 == 0, 'Private directory must have mode 700')
+
+
+def save_state(path, state):
+    path = Path(path)
+    private_directory(path.parent)
+    require(not path.is_symlink(), 'State symlink refused')
+    fd, temporary = tempfile.mkstemp(prefix='.state-', dir=path.parent)
+    try:
+        with os.fdopen(fd, 'w') as f:
+            json.dump(state, f, sort_keys=True)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(temporary, path)
+    finally:
+        if os.path.exists(temporary):
+            os.unlink(temporary)
+
+
+def load_state(path):
+    path = Path(path)
+    if not path.exists():
+        return {}
+    require(not path.is_symlink() and path.stat().st_uid == os.getuid(), 'State must belong to this user')
+    require(stat.S_IMODE(path.stat().st_mode) & 0o077 == 0, 'State must be private (mode 600)')
+    return json.loads(path.read_text())
+
+
+def answer_request(sha, config, state, state_path):
+    statuses = status_list(sha)
+    try:
+        request = fresh_request(statuses, config['cloud_actor'])
+    except ValueError:
+        return  # Never answer unsolicited, stale, malformed or untrusted requests.
+    token = request['description'].split(':')[1]
     try:
         mac_preflight(config)
-    except Exception:
-        post_status(sha, 'failure')
-        raise
-    post_status(sha, 'success')
+        outcome = 'success'
+    except (ValueError, KeyError, OSError, subprocess.SubprocessError):
+        outcome = 'failure'
+    # Post only on a new request or a change of readiness, not every poll.
+    marker = [sha, request['id'], outcome]
+    if state.get('readiness') != marker:
+        current_development(sha)  # Candidate may have advanced during device checks.
+        # Recheck request freshness and identity after potentially slow local commands.
+        current = fresh_request(status_list(sha), config['cloud_actor'])
+        require(current['id'] == request['id'], 'Request superseded while checking Mac')
+        api(f'repos/{REPO}/statuses/{sha}', {'context': CONTEXT, 'state': outcome,
+            'description': 'ready:' + token})
+        state['readiness'] = marker
+        save_state(state_path, state)
+
+
+def watch_once(config, state, state_path):
+    main_sha = commit(api(f'repos/{REPO}/commits/main')['sha'])
+    if 'initial_main' not in state:
+        # Initial startup is a baseline, never an instruction to install old main.
+        state['initial_main'] = main_sha
+        save_state(state_path, state)
+    dev_sha = commit(api(f'repos/{REPO}/git/ref/heads/{DEVELOPMENT_BRANCH}')['object']['sha'])
+    answer_request(dev_sha, config, state, state_path)
+    if main_sha not in (state['initial_main'], state.get('last_installed')):
+        # A failed/not-yet-built install leaves state untouched and is retried later.
+        deploy(config, timeout=0, expected_sha=main_sha)
+        state['last_installed'] = main_sha
+        save_state(state_path, state)
+
+
+def watch(config, state_path, interval=15):
+    require(sys.platform == 'darwin', 'Watch mode runs only on the user Mac')
+    require(bool(config.get('cloud_actor')), 'Set trusted cloud_actor GitHub login in private config')
+    require(interval >= 5, 'Watch interval must be at least 5 seconds')
+    state_path = Path(state_path).expanduser()
+    private_directory(state_path.parent)
+    # Prevent competing LaunchAgent/manual watchers from signing/installing twice.
+    lock_path = state_path.with_suffix('.lock')
+    require(not lock_path.is_symlink(), 'Watch lock symlink refused')
+    fd = os.open(lock_path, os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
+    with os.fdopen(fd, 'w') as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        state = load_state(state_path)
+        while True:
+            try:
+                repo_check()
+                watch_once(config, state, state_path)
+            except (ValueError, KeyError, OSError, subprocess.SubprocessError, zipfile.BadZipFile):
+                # No CLI stderr, URLs, tokens, local identity or UDID in agent logs.
+                print('Watch: prerequisite/build/API not ready; retrying next poll.', flush=True)
+            time.sleep(interval)
 
 
 def trusted_run(info, sha):
@@ -197,7 +347,11 @@ def deploy(config, timeout, expected_sha=None):
     # gh downloads data only; never execute scripts from the artifact or checkout.
     with tempfile.TemporaryDirectory(prefix='iseeyou-deploy-') as folder:
         root = Path(folder)
-        run('gh', 'run', 'download', str(info['id']), '--repo', REPO, '--name', ARTIFACT, '--dir', str(root))
+        download_timeout = config.get('download_timeout_seconds', 1800)
+        require(isinstance(download_timeout, int) and download_timeout >= 1800,
+                'download_timeout_seconds must be at least 1800')
+        run('gh', 'run', 'download', str(info['id']), '--repo', REPO, '--name', ARTIFACT,
+            '--dir', str(root), timeout=download_timeout)
         archive = root / 'ISeeYou.app.zip'
         manifest = json.loads((root / 'manifest.json').read_text())
         validate_manifest(manifest, sha, info['id'], info['run_attempt'], archive)
@@ -219,11 +373,12 @@ def deploy(config, timeout, expected_sha=None):
             '--entitlements', str(ent_path), str(app))
         run('codesign', '--verify', '--deep', '--strict', str(app))
         require(api(f'repos/{REPO}/commits/main')['sha'] == sha, 'main moved before install; rerun')
+        mac_preflight(config)
         run('xcrun', 'devicectl', 'device', 'install', 'app', '--device', config['device_udid'], str(app))
         print(f'Installed trusted main {sha} on configured physical iPhone; no app launch or calibration performed.')
 
 
-def promote(sha, actor):
+def promote(sha, actor, timeout=90):
     """Optional future promotion: only fast-forward, with exact remote-main lease."""
     commit(sha)
     require(not run('git', 'status', '--porcelain').strip(), 'Working tree must be clean')
@@ -232,9 +387,10 @@ def promote(sha, actor):
     run('git', 'fetch', remote, 'refs/heads/main')
     old = run('git', 'rev-parse', 'FETCH_HEAD').decode().strip()
     run('git', 'merge-base', '--is-ancestor', old, sha)
+    request_ready(sha, actor, timeout)
     gate(sha, actor)
     run('git', 'push', f'--force-with-lease=refs/heads/main:{old}', remote, f'{sha}:refs/heads/main')
-    print(f'Fast-forwarded main to {sha}; start/continue Mac follow command to sign/install hosted artifact.')
+    print(f'Fast-forwarded main to {sha}; Mac watch will sign/install the successful hosted main artifact.')
 
 
 def configure_github(config):
@@ -266,41 +422,34 @@ def load_config(path):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest='command', required=True)
-    for name in ('ready', 'follow'):
-        p = sub.add_parser(name)
-        p.add_argument('--config', required=True)
-        p.add_argument('sha')
-        if name == 'follow':
-            p.add_argument('--wait-seconds', type=int, default=1800)
-    for name in ('gate', 'promote'):
+    for name in ('gate', 'request', 'promote'):
         p = sub.add_parser(name)
         p.add_argument('sha')
         p.add_argument('--mac-actor', required=True)
+        if name != 'gate':
+            p.add_argument('--wait-seconds', type=int, default=90)
         if name == 'promote':
             p.add_argument('--confirm-main', action='store_true', required=True)
     p = sub.add_parser('deploy')
     p.add_argument('--config', required=True)
     p.add_argument('--wait-seconds', type=int, default=1800)
+    p = sub.add_parser('watch')
+    p.add_argument('--config', required=True)
+    p.add_argument('--state', required=True)
+    p.add_argument('--interval', type=int, default=15)
     args = parser.parse_args()
     if args.command == 'gate':
         gate(args.sha, args.mac_actor)
-        print('Exact-commit Mac readiness valid for this instant; no merge performed.')
+        print('Requested exact-commit Mac readiness valid now; no merge performed.')
+    elif args.command == 'request':
+        request_ready(args.sha, args.mac_actor, args.wait_seconds)
+        print('Mac answered this readiness request; no merge performed.')
     elif args.command == 'promote':
-        promote(args.sha, args.mac_actor)
-    elif args.command == 'ready':
-        announce(args.sha, load_config(args.config))
+        promote(args.sha, args.mac_actor, args.wait_seconds)
     elif args.command == 'deploy':
         deploy(load_config(args.config), args.wait_seconds)
-    elif args.command == 'follow':
-        # User-invoked foreground process. Only wait for the approved SHA to be main.
-        config = load_config(args.config)
-        sha = commit(args.sha)
-        announce(sha, config)
-        deadline = time.monotonic() + args.wait_seconds
-        while api(f'repos/{REPO}/commits/main')['sha'] != sha:
-            require(time.monotonic() < deadline, 'Timed out waiting for exact approved main SHA')
-            time.sleep(10)
-        deploy(config, args.wait_seconds, expected_sha=sha)
+    elif args.command == 'watch':
+        watch(load_config(args.config), args.state, args.interval)
 
 
 if __name__ == '__main__':
