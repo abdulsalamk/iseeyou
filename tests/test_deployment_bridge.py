@@ -140,7 +140,7 @@ class BridgeTests(unittest.TestCase):
                 if '/actions/workflows/' in path: return {'workflow_runs': [info()]}
                 if '/actions/runs/' in path: return info()
                 return {'id': b.REPO_ID}
-            config = dict(download_timeout_seconds=2400, profile=str(profile), bundle_id='com.iseeyou.research', signing_identity='C'*40, device_udid='phone')
+            config = dict(artifact_cache_dir=str(Path(d)/'cache'), download_timeout_seconds=2400, profile=str(profile), bundle_id='com.iseeyou.research', signing_identity='C'*40, device_udid='phone')
             with patch.object(b, 'api', side_effect=api), patch.object(b, 'run', side_effect=command), patch.object(b, 'mac_preflight', return_value={}):
                 b.deploy(config, 0, expected_sha=SHA)
             signed = [c for c in commands if c[0]=='codesign' and '--force' in c]
@@ -337,6 +337,133 @@ class BridgeTests(unittest.TestCase):
             state = directory/'state.json'; state.symlink_to(target)
             with self.assertRaises(ValueError): b.save_state(state, {})
             self.assertEqual(target.read_text(), 'preserved')
+
+    def artifact_download(self, *args, **kwargs):
+        if args[:3] != ('gh','run','download'): return b''
+        root = Path(args[-1]); archive = root/'ISeeYou.app.zip'
+        with zipfile.ZipFile(archive, 'w') as z:
+            z.writestr('ISeeYou.app/Info.plist', plistlib.dumps(dict(
+                CFBundleIdentifier='com.iseeyou.research', CFBundleSupportedPlatforms=['iPhoneOS'])))
+            z.writestr('ISeeYou.app/Frameworks/SDK.framework/SDK', b'library')
+        (root/'manifest.json').write_text(json.dumps(dict(repository_id=b.REPO_ID,
+            sha=SHA, run_id='123', run_attempt='1', sha256=b.hashlib.sha256(archive.read_bytes()).hexdigest())))
+        return b''
+
+    def test_lock_after_download_preserves_cache_and_retry_never_redownloads(self):
+        def api(path):
+            if path.endswith('/commits/main'): return {'sha':SHA}
+            if '/actions/workflows/' in path: return {'workflow_runs':[info()]}
+            if '/actions/runs/' in path: return info()
+            return {'id':b.REPO_ID}
+        with tempfile.TemporaryDirectory() as d:
+            profile=Path(d)/'profile'; profile.write_bytes(b'local-profile')
+            config=dict(artifact_cache_dir=str(Path(d)/'cache'), download_timeout_seconds=3600,
+                profile=str(profile), bundle_id='com.iseeyou.research', signing_identity='C'*40,device_udid='private-phone')
+            locked=ValueError('iPhone requires passcode')
+            with patch.object(b,'api',side_effect=api), patch.object(b,'run',side_effect=self.artifact_download) as run, patch.object(b,'mac_preflight',side_effect=[{},locked,locked,{},{},{}]):
+                with self.assertRaisesRegex(b.DeploymentError,'after download readiness: phone locked'):
+                    b.deploy(config,0,expected_sha=SHA)
+                entry=Path(config['artifact_cache_dir'])/b.cache_key(info(),SHA)
+                self.assertTrue((entry/'ISeeYou.app.zip').exists())
+                b.verify_cache(entry,info(),SHA)
+                with self.assertRaisesRegex(b.DeploymentError,'before download readiness: phone locked'):
+                    b.deploy(config,0,expected_sha=SHA)
+                b.deploy(config,0,expected_sha=SHA)
+                self.assertEqual(sum(c.args[:3]==('gh','run','download') for c in run.call_args_list),1)
+                self.assertEqual((entry/'ISeeYou.app.zip').stat().st_mode&0o777,0o600)
+                with zipfile.ZipFile(entry/'ISeeYou.app.zip') as z:
+                    self.assertNotIn('ISeeYou.app/embedded.mobileprovision',z.namelist())
+
+    def test_corrupt_hash_forces_safe_redownload_and_new_attempt_key(self):
+        with tempfile.TemporaryDirectory() as d:
+            root=Path(d); config={'artifact_cache_dir':str(root/'cache')}
+            for n in ('first','retry','replacement'): (root/n).mkdir(mode=0o700)
+            with patch.object(b,'run',side_effect=self.artifact_download) as run:
+                b.cached_artifact(config,info(),SHA,root/'first')
+                entry=Path(config['artifact_cache_dir'])/b.cache_key(info(),SHA)
+                (entry/'ISeeYou.app.zip').write_bytes(b'tampered')
+                b.cached_artifact(config,info(),SHA,root/'retry')
+                self.assertEqual(run.call_count,2)
+                b.verify_cache(entry,info(),SHA)
+                self.assertNotEqual(b.cache_key(info(),SHA),b.cache_key(info(run_attempt=2),SHA))
+                b.cached_artifact(config,info(),SHA,root/'replacement')
+                self.assertEqual(run.call_count,2)
+
+    def test_untrusted_build_never_uses_or_downloads_cache(self):
+        with tempfile.TemporaryDirectory() as d, patch.object(b,'run') as run:
+            with self.assertRaises(ValueError):
+                b.cached_artifact({'artifact_cache_dir':str(Path(d)/'cache')},info(event='pull_request'),SHA,Path(d))
+            run.assert_not_called()
+            self.assertFalse((Path(d)/'cache').exists())
+
+    def test_cache_symlinks_permissions_and_owner_rejected(self):
+        with tempfile.TemporaryDirectory() as d:
+            root=Path(d); config={'artifact_cache_dir':str(root/'cache')}; target=root/'dest';target.mkdir()
+            with patch.object(b,'run',side_effect=self.artifact_download) as run:
+                b.cached_artifact(config,info(),SHA,target)
+                entry=Path(config['artifact_cache_dir'])/b.cache_key(info(),SHA)
+                archive=entry/'ISeeYou.app.zip'; archive.chmod(0o644)
+                with self.assertRaises(ValueError): b.cached_artifact(config,info(),SHA,target)
+                self.assertEqual(run.call_count,1)
+                archive.chmod(0o600)
+                with patch.object(b.os,'getuid',return_value=-1), self.assertRaises(ValueError):
+                    b.cached_artifact(config,info(),SHA,target)
+                archive.unlink(); archive.symlink_to(target/'ISeeYou.app.zip')
+                with self.assertRaises(ValueError): b.cached_artifact(config,info(),SHA,target)
+                self.assertEqual(run.call_count,1)
+
+    def test_failed_download_never_publishes_partial_cache(self):
+        with tempfile.TemporaryDirectory() as d:
+            root=Path(d); config={'artifact_cache_dir':str(root/'cache')}
+            with patch.object(b,'run',side_effect=b.subprocess.TimeoutExpired('gh',3600)):
+                with self.assertRaises(b.subprocess.TimeoutExpired):
+                    b.cached_artifact(config,info(),SHA,root)
+            self.assertFalse((root/'cache'/b.cache_key(info(),SHA)).exists())
+            self.assertEqual([p.name for p in (root/'cache').iterdir()],['.cache.lock'])
+
+    def test_stage_reason_sanitizes_private_errors(self):
+        with self.assertRaises(b.DeploymentError) as result:
+            with b.deployment_stage('local signing'):
+                raise b.subprocess.CalledProcessError(1,['codesign','PRIVATE-IDENTITY'],stderr=b'signed URL or secret')
+        self.assertEqual(str(result.exception),'local signing: operation failed; prerequisites or artifact unavailable')
+        self.assertNotIn('PRIVATE',str(result.exception))
+
+    def test_signing_failure_keeps_verified_cache(self):
+        def api(path):
+            if path.endswith('/commits/main'): return {'sha':SHA}
+            if '/actions/workflows/' in path: return {'workflow_runs':[info()]}
+            if '/actions/runs/' in path: return info()
+            return {'id':b.REPO_ID}
+        def command(*args,**kwargs):
+            if args[0]=='codesign': raise b.subprocess.CalledProcessError(1,args,stderr=b'private diagnostic')
+            return self.artifact_download(*args,**kwargs)
+        with tempfile.TemporaryDirectory() as d:
+            profile=Path(d)/'profile';profile.write_bytes(b'local-profile')
+            config=dict(artifact_cache_dir=str(Path(d)/'cache'),profile=str(profile),
+                bundle_id='com.iseeyou.research',signing_identity='C'*40,device_udid='phone')
+            with patch.object(b,'api',side_effect=api),patch.object(b,'mac_preflight',return_value={}),patch.object(b,'run',side_effect=command) as run:
+                with self.assertRaisesRegex(b.DeploymentError,'local signing:'):
+                    b.deploy(config,0,expected_sha=SHA)
+                b.verify_cache(Path(config['artifact_cache_dir'])/b.cache_key(info(),SHA),info(),SHA)
+                run.side_effect=self.artifact_download
+                b.deploy(config,0,expected_sha=SHA)
+                self.assertEqual(sum(c.args[:3]==('gh','run','download') for c in run.call_args_list),1)
+
+    def test_cache_cleanup_only_removes_older_verified_entries(self):
+        with tempfile.TemporaryDirectory() as d:
+            root=Path(d);destination=root/'attempt';destination.mkdir();config={'artifact_cache_dir':str(root/'cache')}
+            with patch.object(b,'run',side_effect=self.artifact_download):
+                b.cached_artifact(config,info(),SHA,destination)
+            current=root/'cache'/b.cache_key(info(),SHA)
+            older_info=info(id=122)
+            older=root/'cache'/b.cache_key(older_info,SHA)
+            b.shutil.copytree(current,older)
+            manifest=json.loads((older/'manifest.json').read_text());manifest['run_id']='122'
+            (older/'manifest.json').write_text(json.dumps(manifest))
+            unrelated=root/'cache'/'user-file';unrelated.write_text('preserve')
+            b.clean_cache_after_success(config,info(),SHA)
+            self.assertFalse(older.exists());self.assertTrue(current.exists())
+            self.assertEqual(unrelated.read_text(),'preserve')
 
 
 if __name__ == '__main__':

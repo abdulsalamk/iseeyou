@@ -17,6 +17,7 @@ import time
 import zipfile
 import uuid
 import fcntl
+from contextlib import contextmanager
 
 REPO = 'abdulsalamk/iseeyou'
 REPO_ID = 1427983832
@@ -282,9 +283,10 @@ def watch(config, state_path, interval=15):
             try:
                 repo_check()
                 watch_once(config, state, state_path)
-            except (ValueError, KeyError, OSError, subprocess.SubprocessError, zipfile.BadZipFile):
+            except (ValueError, KeyError, OSError, subprocess.SubprocessError, zipfile.BadZipFile) as exc:
                 # No CLI stderr, URLs, tokens, local identity or UDID in agent logs.
-                print('Watch: prerequisite/build/API not ready; retrying next poll.', flush=True)
+                reason = str(exc) if isinstance(exc, DeploymentError) else 'prerequisite/build/API not ready'
+                print('Watch: ' + reason + '; retrying next poll.', flush=True)
             time.sleep(interval)
 
 
@@ -323,14 +325,155 @@ def safe_extract(archive, destination):
 
 
 def validate_manifest(manifest, sha, run_id, attempt, archive):
+    with open(archive, 'rb') as f:
+        digest = hashlib.file_digest(f, 'sha256').hexdigest()
     require(manifest == {'repository_id': REPO_ID, 'sha': sha, 'run_id': str(run_id),
-                        'run_attempt': str(attempt), 'sha256': hashlib.sha256(archive.read_bytes()).hexdigest()},
+                        'run_attempt': str(attempt), 'sha256': digest},
             'Artifact manifest/hash mismatch')
+
+
+class DeploymentError(ValueError):
+    """Only fixed, identifier-free reasons are eligible for watcher logs."""
+
+
+@contextmanager
+def deployment_stage(name):
+    try:
+        yield
+    except DeploymentError:
+        raise
+    except (ValueError, KeyError, OSError, subprocess.SubprocessError, zipfile.BadZipFile) as exc:
+        reason = 'operation failed; prerequisites or artifact unavailable'
+        if isinstance(exc, ValueError):
+            if str(exc) in ('iPhone requires passcode', 'iPhone not unlocked since boot'):
+                reason = 'phone locked; unlock the physical iPhone'
+            elif str(exc) in ('iPhone tunnel disconnected/cached', 'iPhone connection not live', 'iPhone not booted'):
+                reason = 'phone offline or disconnected'
+        raise DeploymentError(name + ': ' + reason) from None
+
+
+def cache_file(path, seal=False):
+    metadata = path.lstat()
+    require(stat.S_ISREG(metadata.st_mode) and metadata.st_uid == os.getuid()
+            and metadata.st_nlink == 1, 'Unsafe artifact cache file')
+    if seal:
+        path.chmod(0o600)
+        metadata = path.lstat()
+    require(stat.S_IMODE(metadata.st_mode) == 0o600, 'Artifact cache files must have mode 600')
+    require(metadata.st_size <= (65536 if path.name == 'manifest.json' else 2_000_000_000),
+            'Artifact cache file too large')
+
+
+def cache_key(info, sha):
+    commit(sha)
+    require(type(info['id']) is int and info['id'] > 0 and type(info['run_attempt']) is int
+            and info['run_attempt'] > 0, 'Invalid build run identity')
+    return f"{REPO_ID}-{info['id']}-{info['run_attempt']}-{sha}"
+
+
+def verify_cache_files(entry, seal=False):
+    private_directory(entry)
+    require({p.name for p in entry.iterdir()} == {'ISeeYou.app.zip', 'manifest.json'},
+            'Unexpected artifact cache contents')
+    for name in ('ISeeYou.app.zip', 'manifest.json'):
+        cache_file(entry / name, seal=seal)
+
+
+def verify_cache(entry, info, sha):
+    verify_cache_files(entry)
+    manifest = json.loads((entry / 'manifest.json').read_text())
+    validate_manifest(manifest, sha, info['id'], info['run_attempt'], entry / 'ISeeYou.app.zip')
+
+
+def cache_root(config):
+    return Path(config.get('artifact_cache_dir', '~/.local/state/iseeyou-deploy/artifacts')).expanduser()
+
+
+@contextmanager
+def cache_lock(root):
+    private_directory(root)
+    lock_path = root / '.cache.lock'
+    fd = os.open(lock_path, os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW, 0o600)
+    with os.fdopen(fd, 'w') as lock:
+        require(os.fstat(lock.fileno()).st_uid == os.getuid()
+                and stat.S_ISREG(os.fstat(lock.fileno()).st_mode)
+                and stat.S_IMODE(os.fstat(lock.fileno()).st_mode) == 0o600,
+                'Unsafe artifact cache lock')
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        yield
+
+
+def cached_artifact(config, info, sha, destination):
+    # Provenance is checked on every attempt, even when no network download is needed.
+    trusted_run(info, sha)
+    root = cache_root(config)
+    key = cache_key(info, sha)
+    entry = root / key
+    with cache_lock(root):
+        valid = False
+        if entry.exists() or entry.is_symlink():
+            # Unsafe ownership, permissions, links or unexpected files fail closed.
+            # Only structurally safe entries with bad hash/manifest can be replaced.
+            verify_cache_files(entry)
+            try:
+                verify_cache(entry, info, sha)
+                valid = True
+            except (ValueError, KeyError):
+                print('Artifact cache validation failed; downloading a verified replacement.', flush=True)
+        if not valid:
+            download_timeout = config.get('download_timeout_seconds', 1800)
+            require(isinstance(download_timeout, int) and download_timeout >= 1800,
+                    'download_timeout_seconds must be at least 1800')
+            staging = Path(tempfile.mkdtemp(prefix='.download-', dir=root))
+            try:
+                run('gh', 'run', 'download', str(info['id']), '--repo', REPO, '--name', ARTIFACT,
+                    '--dir', str(staging), timeout=download_timeout)
+                verify_cache_files(staging, seal=True)
+                verify_cache(staging, info, sha)
+                for name in ('ISeeYou.app.zip', 'manifest.json'):
+                    with open(staging / name, 'rb') as f:
+                        os.fsync(f.fileno())
+                if entry.exists():
+                    verify_cache_files(entry)
+                    shutil.rmtree(entry)  # Only this checked private, two-file invalid entry.
+                os.replace(staging, entry)  # Same-filesystem atomic publication of verified data.
+                directory = os.open(root, os.O_RDONLY)
+                try:
+                    os.fsync(directory)
+                finally:
+                    os.close(directory)
+            finally:
+                if staging.exists():
+                    shutil.rmtree(staging)
+        # Copy unsigned data only into a fresh attempt directory. Never modify cached ZIP.
+        verify_cache(entry, info, sha)
+        for name in ('ISeeYou.app.zip', 'manifest.json'):
+            shutil.copyfile(entry / name, destination / name)
+            (destination / name).chmod(0o600)
+    return destination / 'ISeeYou.app.zip'
+
+
+def clean_cache_after_success(config, info, sha):
+    """Retain current verified release, remove older verified entries only after install."""
+    root = cache_root(config)
+    keep = cache_key(info, sha)
+    with cache_lock(root):
+        for entry in root.iterdir():
+            match = re.fullmatch(str(REPO_ID) + r'-(\d+)-(\d+)-([0-9a-f]{40})', entry.name)
+            if not match or entry.name == keep:
+                continue
+            older = {'id': int(match[1]), 'run_attempt': int(match[2])}
+            try:
+                verify_cache(entry, older, match[3])
+            except (ValueError, KeyError, OSError):
+                continue  # Never recursively remove unknown, linked, or unsafe content.
+            shutil.rmtree(entry)
 
 
 def deploy(config, timeout, expected_sha=None):
     repo_check()
-    mac_preflight(config)
+    with deployment_stage('before download readiness'):
+        mac_preflight(config)
     sha = commit(api(f'repos/{REPO}/commits/main')['sha'])
     require(expected_sha is None or sha == expected_sha, 'main changed from approved commit')
     deadline = time.monotonic() + timeout
@@ -347,14 +490,8 @@ def deploy(config, timeout, expected_sha=None):
     # gh downloads data only; never execute scripts from the artifact or checkout.
     with tempfile.TemporaryDirectory(prefix='iseeyou-deploy-') as folder:
         root = Path(folder)
-        download_timeout = config.get('download_timeout_seconds', 1800)
-        require(isinstance(download_timeout, int) and download_timeout >= 1800,
-                'download_timeout_seconds must be at least 1800')
-        run('gh', 'run', 'download', str(info['id']), '--repo', REPO, '--name', ARTIFACT,
-            '--dir', str(root), timeout=download_timeout)
-        archive = root / 'ISeeYou.app.zip'
-        manifest = json.loads((root / 'manifest.json').read_text())
-        validate_manifest(manifest, sha, info['id'], info['run_attempt'], archive)
+        with deployment_stage('artifact cache/download'):
+            archive = cached_artifact(config, info, sha, root)
         safe_extract(archive, root)
         app = root / 'ISeeYou.app'
         app_info = plistlib.loads((app / 'Info.plist').read_bytes())
@@ -362,19 +499,27 @@ def deploy(config, timeout, expected_sha=None):
         require(app_info.get('CFBundleSupportedPlatforms') == ['iPhoneOS'], 'Physical iPhone build required')
         require(not list(app.rglob('*.appex')), 'App extensions need separate profiles; refusing')
         require(api(f'repos/{REPO}/commits/main')['sha'] == sha, 'main moved; rerun deployment')
-        ent = mac_preflight(config)
+        with deployment_stage('after download readiness'):
+            ent = mac_preflight(config)
         shutil.copyfile(config['profile'], app / 'embedded.mobileprovision')
         ent_path = root / 'entitlements.plist'
         ent_path.write_bytes(plistlib.dumps(ent))
-        nested = list(app.rglob('*.framework')) + list(app.rglob('*.dylib'))
-        for binary in sorted(nested, key=lambda p: len(p.parts), reverse=True):
-            run('codesign', '--force', '--sign', config['signing_identity'], '--timestamp=none', str(binary))
-        run('codesign', '--force', '--sign', config['signing_identity'], '--timestamp=none',
-            '--entitlements', str(ent_path), str(app))
-        run('codesign', '--verify', '--deep', '--strict', str(app))
+        with deployment_stage('local signing'):
+            nested = list(app.rglob('*.framework')) + list(app.rglob('*.dylib'))
+            for binary in sorted(nested, key=lambda p: len(p.parts), reverse=True):
+                run('codesign', '--force', '--sign', config['signing_identity'], '--timestamp=none', str(binary))
+            run('codesign', '--force', '--sign', config['signing_identity'], '--timestamp=none',
+                '--entitlements', str(ent_path), str(app))
+            run('codesign', '--verify', '--deep', '--strict', str(app))
         require(api(f'repos/{REPO}/commits/main')['sha'] == sha, 'main moved before install; rerun')
-        mac_preflight(config)
-        run('xcrun', 'devicectl', 'device', 'install', 'app', '--device', config['device_udid'], str(app))
+        with deployment_stage('before install readiness'):
+            mac_preflight(config)
+        with deployment_stage('physical install'):
+            run('xcrun', 'devicectl', 'device', 'install', 'app', '--device', config['device_udid'], str(app))
+        try:
+            clean_cache_after_success(config, info, sha)
+        except (ValueError, KeyError, OSError):
+            print('Artifact cache cleanup deferred; installation succeeded.', flush=True)
         print(f'Installed trusted main {sha} on configured physical iPhone; no app launch or calibration performed.')
 
 
