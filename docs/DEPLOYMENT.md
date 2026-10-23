@@ -1,4 +1,6 @@
-# Hosted unsigned builds and persistent Mac deployment
+# Historical cloud deployment (disabled)
+
+The user reverted to local Mac development on 23 October 2026. Both GitHub Actions workflows are manually disabled, the deployment follow-up is paused, and the Mac LaunchAgent is stopped and removed from login startup. Build, sign and install locally with Xcode; do not run the bridge below or re-enable cloud deployment without a new explicit request. See `AGENTS.md` for the current workflow. The remaining document describes the previous implementation for reference.
 
 Pushes to `codex/**` and `main`, PRs targeting main, and manual dispatch build unsigned physical-iPhone artifacts on GitHub-hosted macOS. Development works with the Mac offline. Hosted Linux runs bridge contract tests. No self-hosted runner, inbound listener, simulator, local Mac compilation, or Apple credential in cloud is needed.
 
