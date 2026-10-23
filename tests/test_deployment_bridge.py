@@ -330,7 +330,7 @@ class BridgeTests(unittest.TestCase):
 
     def test_private_state_directory_and_symlink_refusal(self):
         with tempfile.TemporaryDirectory() as d:
-            directory = Path(d)/'state'; directory.mkdir(mode=0o755)
+            directory = Path(d)/'state'; directory.mkdir(); directory.chmod(0o755)
             with self.assertRaises(ValueError): b.save_state(directory/'state.json', {})
             directory.chmod(0o700)
             target = directory/'target'; target.write_text('preserved')
