@@ -12,9 +12,9 @@ chmod 700 "$HOME/.local/share/iseeyou-learning"
 python3 scripts/learning/pipeline.py fetch --output "$HOME/.local/share/iseeyou-learning/review-001"
 ```
 
-`review.json` lists image checksums, pinned S3 source versions and Nova proposals. Fetch excludes mock completions and marked synthetic fixtures. For each real example, a reviewer must fill `reviewed_by`, `complete_annotation: true`, `group`, `split`, and `objects`. Objects use `{"label":"piano","box":[xmin,ymin,xmax,ymax]}` with normalized top-left coordinates. Label every visible supported object, not just the piano; use an empty list only for a reviewed negative image. Teacher boxes are suggestions, never copied into approved annotations automatically. Give frames from the same recording/session/scene the same group, and keep groups entirely within one split. Exact duplicate images are rejected even within a split. Visually near-identical frames and repeated views of the same piano must also be grouped by the reviewer.
+`review.json` lists image checksums, pinned S3 source versions and Nova proposals. Fetch excludes mock completions and marked synthetic fixtures. For each real example, a reviewer must fill `reviewed_by`, `complete_annotation: true`, `group`, `split`, and `objects`. Objects use `{"label":"reviewed_object","box":[xmin,ymin,xmax,ymax]}` with normalized top-left coordinates. Replace the example label with the human-confirmed object name. Label every visible supported object; use an empty list only for a reviewed negative image. Teacher boxes are suggestions, never copied into approved annotations automatically. Give frames from the same recording/session/scene the same group, and keep groups entirely within one split. Exact duplicate images are rejected even within a split. Visually near-identical frames and repeated views of the same scene must also be grouped by the reviewer.
 
-Retain all 80 COCO class IDs, appending piano at ID 80. Merge independently reviewed historical/replay examples into the same workspace. Minimum distinct images per class: piano 20 train / 5 validation / 5 test; each existing class 5 / 2 / 3. These are minimum gates, not proof that a dataset is representative. Use different pianos, actual laptops and challenging scenes; a single piano filmed repeatedly does not establish generalization. No class is silently dropped to get a training run through.
+Retain all 80 existing COCO class IDs. Human-approved additional classes are appended in alphabetical order; they receive IDs only after the existing classes, and that list stays fixed for each dataset version. Merge independently reviewed historical/replay examples into the same workspace. Minimum distinct images per new class 20 train / 5 validation / 5 test; each existing class requires 5 / 2 / 3. These are minimum gates, not proof that a dataset is representative. For each correction, include different examples of the corrected object, the objects it was confused with, and challenging scenes. Repeated frames of one instance do not establish generalization. No class is silently dropped to get a training run through.
 
 ```sh
 python3 scripts/learning/pipeline.py curate --review "$HOME/.local/share/iseeyou-learning/review-001/review.json" --output "$HOME/.local/share/iseeyou-learning/dataset-001"
@@ -32,7 +32,7 @@ python scripts/learning/pipeline.py evaluate --dataset /PRIVATE/dataset-001 --ch
 python scripts/learning/pipeline.py export --evaluation /PRIVATE/evaluation-001.json --checkpoint /PRIVATE/run-001/fit/weights/best.pt --output /PRIVATE/candidate-001.mlpackage
 ```
 
-Training records checkpoint/dataset/baseline hashes, seed, epochs and installed package versions. Evaluation compares the candidate and bundled baseline on the same held-out images, using 101-point AP at IoU .5 and precision/recall at confidence .4. No existing class may regress more than three percentage points in AP50, precision or recall. Piano must improve over baseline, with AP50 >= .5, recall >= .6 and precision >= .8. Missing support or failed gates rejects the candidate. This evaluates object recognition; it does not establish safe navigation, door state, steps/kerbs or hazard performance.
+Training records checkpoint/dataset/baseline hashes, seed, epochs and installed package versions. Evaluation compares the candidate and bundled baseline on the same held-out images, using 101-point AP at IoU .5 and precision/recall at confidence .4. No existing class may regress more than three percentage points in AP50, precision or recall. Each additional class must beat its baseline result with AP50 >= .5, recall >= .6 and precision >= .8. Missing support or failed gates rejects the candidate. This evaluates object recognition; it does not establish safe navigation, door state, steps/kerbs or hazard performance.
 
 Export requires a passing evaluation bound to the exact checkpoint. It produces the same 640px FP16 CoreML/NMS interface used by the app, with a .001 NMS score floor to allow held-out parity checks. It does not overwrite the bundled detector. The export sidecar binds its files to the evaluation. The resulting CoreML detector must still be checked on the physical iPhone: quantization/conversion can change results.
 
@@ -71,7 +71,7 @@ Replace measurements with actual observations and mark checks true only after th
 The initial private Ed25519 signing key is stored on this Mac at `~/.config/iseeyou-teacher/model-signing.key` (mode 0600). Only its public pin is bundled in the app. Back up that private key securely. Do not put it or device connection tokens in Git. For a fresh setup, `swift scripts/learning/sign.swift init PRIVATE_KEY ISeeYou/ModelSigningPublicKey.txt` creates a key/pin pair and refuses overwrites; changing the pin requires a locally signed app build.
 
 ```sh
-python scripts/learning/pipeline.py release --package /PRIVATE/candidate-001.mlpackage --device-report /PRIVATE/device-report.json --version piano-001 --key "$HOME/.config/iseeyou-teacher/model-signing.key" --output /PRIVATE/release-001
+python scripts/learning/pipeline.py release --package /PRIVATE/candidate-001.mlpackage --device-report /PRIVATE/device-report.json --version reviewed-001 --key "$HOME/.config/iseeyou-teacher/model-signing.key" --output /PRIVATE/release-001
 python scripts/learning/pipeline.py deliver --release /PRIVATE/release-001 --device PHYSICAL_DEVICE_ID
 ```
 
@@ -79,7 +79,7 @@ After staging, stop the camera and tap **Detector updates → Install reviewed m
 
 ## Current boundary
 
-The workflow is operator-invoked and local. Nightly AWS inventory remains inventory-only; it does not train. Review UI, automatic curation, cloud training, signed OTA downloads, automatic rollouts and a representative hazard/safety benchmark are not implemented by this workflow. Passing software checks does not mean a piano-trained model exists: no new weights are available until review, data coverage, training and physical acceptance are complete.
+The workflow is operator-invoked and local. Nightly AWS inventory remains inventory-only; it does not train. Review UI, automatic curation, cloud training, signed OTA downloads, automatic rollouts and a representative hazard/safety benchmark are not implemented by this workflow. Passing software checks does not mean any new class is trained: no new weights are available until review, data coverage, training and physical acceptance are complete.
 
 ## Implementation verification (24 October 2026)
 

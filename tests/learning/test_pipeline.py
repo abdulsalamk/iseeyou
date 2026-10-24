@@ -11,21 +11,23 @@ import sys
 
 spec = importlib.util.spec_from_file_location('pipeline', Path(__file__).parents[2] / 'scripts/learning/pipeline.py')
 p = importlib.util.module_from_spec(spec); spec.loader.exec_module(p)
+REVIEWED_CLASS = 'reviewed_object'
+NAMES = p.COCO + [REVIEWED_CLASS]
 
 class LearningTests(unittest.TestCase):
     def sample(self, folder, index=0, split='train', group='scene-a'):
         image = folder / f'{index}.jpg'; image.write_bytes(b'fixture' + str(index).encode())
         return {'id': f'sample-{index}', 'image': image.name, 'sha256': p.sha(image), 'split': split, 'group': group,
-                'reviewed_by': 'reviewer', 'complete_annotation': True, 'objects': [{'label': 'piano', 'box': [.1, .1, .9, .9]}]}
+                'reviewed_by': 'reviewer', 'complete_annotation': True, 'objects': [{'label': REVIEWED_CLASS, 'box': [.1, .1, .9, .9]}]}
     def test_teacher_proposals_cannot_bypass_human_review(self):
         with tempfile.TemporaryDirectory() as temp:
             folder = Path(temp); sample = self.sample(folder); sample['complete_annotation'] = False
             with self.assertRaisesRegex(ValueError, 'Human reviewer'):
-                p.validate_review({'schema_version': 1, 'names': p.NAMES, 'samples': [sample]}, folder)
+                p.validate_review({'schema_version': 1, 'names': NAMES, 'samples': [sample]}, folder)
     def test_group_and_duplicate_leakage_rejected(self):
         with tempfile.TemporaryDirectory() as temp:
             folder = Path(temp); a = self.sample(folder); b = self.sample(folder, 1, 'test')
-            doc = {'schema_version': 1, 'names': p.NAMES, 'samples': [a, b]}
+            doc = {'schema_version': 1, 'names': NAMES, 'samples': [a, b]}
             with self.assertRaisesRegex(ValueError, 'leakage'):
                 p.validate_review(doc, folder)
             b['group'] = 'scene-b'; b['image'] = a['image']; b['sha256'] = a['sha256']
@@ -34,28 +36,28 @@ class LearningTests(unittest.TestCase):
     def test_review_checksum_box_and_mock_validation(self):
         with tempfile.TemporaryDirectory() as temp:
             folder = Path(temp); sample = self.sample(folder)
-            doc = {'schema_version': 1, 'names': p.NAMES, 'samples': [sample]}
+            doc = {'schema_version': 1, 'names': NAMES, 'samples': [sample]}
             _, reasons = p.validate_review(doc, folder)
-            self.assertTrue(any('test/piano' in r for r in reasons))
-            for change in ({'sha256': 'wrong'}, {'source': {'mock': True}}, {'objects': [{'label': 'piano', 'box': [0, 0, float('nan'), 1]}]}):
+            self.assertTrue(any('test/' + REVIEWED_CLASS in r for r in reasons))
+            for change in ({'sha256': 'wrong'}, {'source': {'mock': True}}, {'objects': [{'label': REVIEWED_CLASS, 'box': [0, 0, float('nan'), 1]}]}):
                 bad = copy.deepcopy(doc); bad['samples'][0].update(change)
                 with self.assertRaises(ValueError): p.validate_review(bad, folder)
     def test_ap_duplicate_detection_and_wrong_class(self):
-        truth = {'a': [{'label': 'piano', 'box': [0, 0, 1, 1]}]}
-        detection = {'label': 'piano', 'box': [0, 0, 1, 1], 'confidence': .9}
-        report = p.metrics(truth, {'a': [detection, dict(detection, confidence=.8)]})
-        self.assertEqual(report['piano']['ap50'], 1)
-        self.assertEqual(report['piano']['recall'], 1)
-        self.assertEqual(report['piano']['precision'], .5)
-        wrong = p.metrics(truth, {'a': [dict(detection, label='laptop')]})
-        self.assertEqual(wrong['piano']['recall'], 0)
-    def test_gate_rejects_old_class_regression_even_with_better_piano(self):
-        baseline = {n: {'support': 5, 'ap50': .8, 'precision': .8, 'recall': .8} for n in p.NAMES}
-        baseline['piano'].update(ap50=0, recall=0, precision=0)
-        candidate = copy.deepcopy(baseline); candidate['piano'].update(ap50=.8, recall=.8, precision=.9)
-        self.assertEqual(p.gate(baseline, candidate), [])
-        candidate['laptop']['recall'] = .5
-        self.assertIn('regression: laptop', p.gate(baseline, candidate))
+        truth = {'a': [{'label': REVIEWED_CLASS, 'box': [0, 0, 1, 1]}]}
+        detection = {'label': REVIEWED_CLASS, 'box': [0, 0, 1, 1], 'confidence': .9}
+        report = p.metrics(truth, {'a': [detection, dict(detection, confidence=.8)]}, NAMES)
+        self.assertEqual(report[REVIEWED_CLASS]['ap50'], 1)
+        self.assertEqual(report[REVIEWED_CLASS]['recall'], 1)
+        self.assertEqual(report[REVIEWED_CLASS]['precision'], .5)
+        wrong = p.metrics(truth, {'a': [dict(detection, label=p.COCO[0])]}, NAMES)
+        self.assertEqual(wrong[REVIEWED_CLASS]['recall'], 0)
+    def test_gate_checks_new_categories_and_preserves_existing_class_quality(self):
+        baseline = {n: {'support': 5, 'ap50': .8, 'precision': .8, 'recall': .8} for n in NAMES}
+        baseline[REVIEWED_CLASS].update(ap50=0, recall=0, precision=0)
+        candidate = copy.deepcopy(baseline); candidate[REVIEWED_CLASS].update(ap50=.8, recall=.8, precision=.9)
+        self.assertEqual(p.gate(baseline, candidate, NAMES), [])
+        candidate[p.COCO[0]]['recall'] = .5
+        self.assertIn('regression: ' + p.COCO[0], p.gate(baseline, candidate, NAMES))
     def test_dataset_tampering_rejected(self):
         with tempfile.TemporaryDirectory() as temp:
             folder = Path(temp); (folder / 'image').write_bytes(b'original')
@@ -69,9 +71,9 @@ class LearningTests(unittest.TestCase):
             for split, count in [('train', 20), ('val', 5), ('test', 5)]:
                 for _ in range(count):
                     sample = self.sample(folder, len(samples), split, 'scene-' + split)
-                    sample['objects'] = [{'label': name, 'box': [.1, .1, .9, .9]} for name in p.NAMES]
+                    sample['objects'] = [{'label': name, 'box': [.1, .1, .9, .9]} for name in NAMES]
                     samples.append(sample)
-            p.write(folder / 'review.json', {'schema_version': 1, 'names': p.NAMES, 'samples': samples})
+            p.write(folder / 'review.json', {'schema_version': 1, 'names': NAMES, 'samples': samples})
             dataset = folder / 'dataset'
             p.curate(Namespace(review=str(folder / 'review.json'), output=str(dataset)))
             _, original_digest = p.check_dataset(dataset)
@@ -88,9 +90,9 @@ class LearningTests(unittest.TestCase):
                 p.train(Namespace(dataset=str(dataset), output=str(folder / 'run'), epochs=1))
             self.assertEqual(model.train.call_args.kwargs['device'], 'cpu')
             self.assertEqual(p.check_dataset(dataset)[1], original_digest)
-            candidate = Mock(); candidate.names = dict(enumerate(p.NAMES))
+            candidate = Mock(); candidate.names = dict(enumerate(NAMES))
             def prediction(model, dataset, rows):
-                names = p.NAMES if model is candidate else p.COCO
+                names = NAMES if model is candidate else p.COCO
                 return {s['id']: [{'label': name, 'box': [.1,.1,.9,.9], 'confidence': .9} for name in names] for s in rows}
             with patch.dict(sys.modules, {'ultralytics': SimpleNamespace(YOLO=Mock(side_effect=[candidate, model]))}), \
                  patch.object(p, 'predict', side_effect=prediction):

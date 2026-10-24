@@ -15,7 +15,6 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 # Explicit separators preserve compound COCO names and the existing class IDs.
 COCO = ['person','bicycle','car','motorcycle','airplane','bus','train','truck','boat','traffic light','fire hydrant','stop sign','parking meter','bench','bird','cat','dog','horse','sheep','cow','elephant','bear','zebra','giraffe','backpack','umbrella','handbag','tie','suitcase','frisbee','skis','snowboard','sports ball','kite','baseball bat','baseball glove','skateboard','surfboard','tennis racket','bottle','wine glass','cup','fork','knife','spoon','bowl','banana','apple','sandwich','orange','broccoli','carrot','hot dog','pizza','donut','cake','chair','couch','potted plant','bed','dining table','toilet','tv','laptop','mouse','remote','keyboard','cell phone','microwave','oven','toaster','sink','refrigerator','book','clock','vase','scissors','teddy bear','hair drier','toothbrush']
-NAMES = COCO + ['piano']
 SPLITS = ('train', 'val', 'test')
 
 
@@ -82,12 +81,25 @@ def fetch(args):
                         'objects': [], 'source': {'candidate_key': item['Key'], 'candidate_version': meta['VersionId'],
                         'image_key': source['image_key'], 'image_version': source['image_version']},
                         'teacher_proposal': doc['proposal']})
-    write(dest / 'review.json', {'schema_version': 1, 'names': NAMES, 'samples': samples})
+    write(dest / 'review.json', {'schema_version': 1, 'names': COCO, 'samples': samples})
     print(f'{len(samples)} unapproved samples downloaded for review; annotate every visible supported object and assign independent scene/session groups.')
 
 
+def validate_names(doc):
+    names = doc.get('names')
+    require(isinstance(names, list) and len(names) >= len(COCO) and names[:len(COCO)] == COCO,
+            'The original COCO class IDs must remain unchanged')
+    added = names[len(COCO):]
+    require(all(isinstance(x, str) and x.strip() == x and 1 <= len(x) <= 100 for x in added),
+            'Additional class names must be nonempty reviewed labels')
+    require(added == sorted(added, key=str.casefold) and len({x.casefold() for x in names}) == len(names),
+            'Additional labels must be unique and sorted alphabetically after the original classes')
+    return names
+
+
 def validate_review(doc, base):
-    require(doc.get('schema_version') == 1 and doc.get('names') == NAMES, 'Expected unchanged COCO IDs plus piano at ID 80')
+    require(doc.get('schema_version') == 1, 'Unsupported review schema')
+    names = validate_names(doc)
     samples = doc.get('samples')
     require(isinstance(samples, list) and samples, 'No reviewed samples')
     groups, hashes, ids, rows = {}, set(), set(), []
@@ -113,7 +125,7 @@ def validate_review(doc, base):
         require(isinstance(objects, list) and len(objects) <= 100, 'Invalid object annotations')
         labels = []
         for obj in objects:
-            require(obj.get('label') in NAMES, 'Unknown annotation class')
+            require(obj.get('label') in names, 'Add newly reviewed classes to the names list, sorted after the existing classes')
             box = obj.get('box')
             require(isinstance(box, list) and len(box) == 4 and all(type(x) in (int, float) and math.isfinite(x) and 0 <= x <= 1 for x in box), 'Expected finite normalized xyxy boxes')
             require(box[0] < box[2] and box[1] < box[3], 'Annotation box must have area')
@@ -123,8 +135,8 @@ def validate_review(doc, base):
     # Separate scene groups are the reviewer's responsibility; exact duplicates are also rejected.
     reasons = []
     for split in SPLITS:
-        for name in NAMES:
-            minimum = {'train': 20, 'val': 5, 'test': 5}[split] if name == 'piano' else {'train': 5, 'val': 2, 'test': 3}[split]
+        for name in names:
+            minimum = {'train': 20, 'val': 5, 'test': 5}[split] if name not in COCO else {'train': 5, 'val': 2, 'test': 3}[split]
             if counts[split][name] < minimum:
                 reasons.append(f'{split}/{name}: {counts[split][name]} images, requires {minimum}')
     return rows, reasons
@@ -139,6 +151,7 @@ def curate(args):
     require(not dest.exists(), 'Dataset output already exists; create a new version')
     with tempfile.TemporaryDirectory(dir=dest.parent, prefix='.dataset-') as temporary:
         stage = Path(temporary)
+        names = validate_names(doc)
         for split in SPLITS:
             (stage / 'images' / split).mkdir(parents=True)
             (stage / 'labels' / split).mkdir(parents=True)
@@ -149,11 +162,11 @@ def curate(args):
             lines = []
             for obj in sample['objects']:
                 x1, y1, x2, y2 = obj['box']
-                lines.append(f'{NAMES.index(obj["label"])} {(x1+x2)/2:.9f} {(y1+y2)/2:.9f} {x2-x1:.9f} {y2-y1:.9f}')
+                lines.append(f'{names.index(obj["label"])} {(x1+x2)/2:.9f} {(y1+y2)/2:.9f} {x2-x1:.9f} {y2-y1:.9f}')
             (stage / 'labels' / split / (stem + '.txt')).write_text('\n'.join(lines) + '\n')
         write(stage / 'review.json', doc)
         # JSON is valid YAML; validation never uses the held-out test split for fitting.
-        write(stage / 'data.yaml', {'path': str(dest), 'train': 'images/train', 'val': 'images/val', 'test': 'images/test', 'names': dict(enumerate(NAMES))})
+        write(stage / 'data.yaml', {'path': str(dest), 'train': 'images/train', 'val': 'images/val', 'test': 'images/test', 'names': dict(enumerate(names))})
         files = {str(p.relative_to(stage)): sha(p) for p in sorted(stage.rglob('*')) if p.is_file()}
         write(stage / 'dataset.json', {'schema_version': 1, 'files': files, 'review_sha256': sha(path)})
         shutil.copytree(stage, dest)
@@ -205,7 +218,7 @@ def iou(a, b):
     return area / max(1e-12, (a[2]-a[0])*(a[3]-a[1])+(b[2]-b[0])*(b[3]-b[1])-area)
 
 
-def metrics(truth, predictions, names=NAMES):
+def metrics(truth, predictions, names=COCO):
     result = {}
     for name in names:
         gt = {k: [o['box'] for o in v if o['label'] == name] for k, v in truth.items()}
@@ -233,18 +246,18 @@ def metrics(truth, predictions, names=NAMES):
     return result
 
 
-def gate(baseline, candidate):
+def gate(baseline, candidate, names):
     failures = []
-    for name in NAMES:
+    for name in names:
         a, b = baseline[name], candidate[name]
         require(all(type(row.get(k)) in (int, float) and math.isfinite(row[k]) and 0 <= row[k] <= 1 for row in (a, b) for k in ('ap50', 'recall', 'precision')), 'Nonfinite or invalid evaluation metric')
-        if b['support'] < (5 if name == 'piano' else 3):
+        is_new = name not in COCO
+        if b['support'] < (5 if is_new else 3):
             failures.append('missing held-out support: ' + name)
-        if name != 'piano' and (b['ap50'] < a['ap50'] - .03 or b['recall'] < a['recall'] - .03 or b['precision'] < a['precision'] - .03):
+        if not is_new and (b['ap50'] < a['ap50'] - .03 or b['recall'] < a['recall'] - .03 or b['precision'] < a['precision'] - .03):
             failures.append('regression: ' + name)
-    piano = candidate['piano']
-    if piano['ap50'] < .5 or piano['recall'] < .6 or piano['precision'] < .8 or piano['ap50'] <= baseline['piano']['ap50']:
-        failures.append('piano quality/improvement gate failed')
+        if is_new and (b['ap50'] < .5 or b['recall'] < .6 or b['precision'] < .8 or b['ap50'] <= a['ap50']):
+            failures.append('new-class quality/improvement gate failed: ' + name)
     return failures
 
 
@@ -263,14 +276,16 @@ def evaluate(args):
     checkpoint = Path(args.checkpoint).resolve()
     from ultralytics import YOLO
     candidate = YOLO(str(checkpoint))
-    require(list(candidate.names.values()) == NAMES, 'Candidate class IDs must preserve COCO and append piano')
-    rows = [s for s in load(dataset / 'review.json')['samples'] if s['split'] == 'test']
+    review = load(dataset / 'review.json')
+    names = validate_names(review)
+    require(list(candidate.names.values()) == names, 'Candidate class IDs do not match the reviewed dataset')
+    rows = [s for s in review['samples'] if s['split'] == 'test']
     truth = {s['id']: s['objects'] for s in rows}
-    baseline = metrics(truth, predict(YOLO(str(ROOT / 'models/yolo11n.pt')), dataset, rows))
-    proposed = metrics(truth, predict(candidate, dataset, rows))
-    failures = gate(baseline, proposed)
+    baseline = metrics(truth, predict(YOLO(str(ROOT / 'models/yolo11n.pt')), dataset, rows), names)
+    proposed = metrics(truth, predict(candidate, dataset, rows), names)
+    failures = gate(baseline, proposed, names)
     require(not Path(args.output).exists(), 'Evaluation output already exists')
-    write(args.output, {'schema_version': 1, 'dataset_sha256': digest, 'checkpoint_sha256': sha(checkpoint),
+    write(args.output, {'schema_version': 1, 'names': names, 'dataset_sha256': digest, 'checkpoint_sha256': sha(checkpoint),
                        'baseline_sha256': sha(ROOT / 'models/yolo11n.pt'), 'baseline': baseline, 'candidate': proposed,
                        'failures': failures, 'quality_passed': not failures,
                        'deployment_approved': False, 'note': 'Object-label benchmark only; physical CoreML performance and safety signoff still required'})
@@ -287,7 +302,8 @@ def export(args):
     require(not checkpoint.with_suffix('.mlpackage').exists(), 'Internal export package already exists; use a fresh candidate checkpoint directory')
     from ultralytics import YOLO
     model = YOLO(str(checkpoint))
-    require(list(model.names.values()) == NAMES, 'Unexpected class mapping')
+    names = report.get('names')
+    require(isinstance(names, list) and list(model.names.values()) == names, 'Unexpected class mapping')
     package = Path(model.export(format='coreml', imgsz=640, nms=True, half=True, device='cpu', conf=.001))
     shutil.copytree(package, dest)
     files = package_files(dest)
