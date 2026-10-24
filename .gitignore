@@ -239,3 +239,7 @@ __pycache__/
 !ISeeYou/Models/MetricDepthSmall.mlpackage/**
 !ISeeYou/Models/DoorSceneImage.mlpackage/
 !ISeeYou/Models/DoorSceneImage.mlpackage/**
+
+# Private local learning workspaces and signing secrets
+.learning/
+*.signing.key

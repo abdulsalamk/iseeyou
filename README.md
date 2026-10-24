@@ -79,4 +79,12 @@ See [camera startup findings and verification limits](docs/CAMERA_STARTUP.md). P
 
 A second Core ML model, Depth Anything V2 Metric Hypersim Small, predicts indoor surface depth. Object labels distinguish confidence percentages from approximate metres. Expand **Measure and validate distances** to record physically measured samples and export the results. Experimental numerical speech can be enabled before held-out checks at the user’s request; it never substitutes invented numbers for absent readings. Under half a metre adds “very close”. Beeps are deferred. See the [full workflow, provenance and limits](docs/DEPTH_PLAN.md#implemented-indoor-prototype-physical-calibration-still-required).
 
-The 50% naming fallback is verified by boundary and speech tests; all 31 unit tests passed on the paired physical iPhone. A reported piano classified as laptop at 97% remains a known limitation: this threshold cannot identify confidently wrong predictions or add unsupported classes. Correcting that requires broader recognition or a separate verification model, not merely changing the cutoff.
+The 50% naming fallback is verified by boundary and speech tests; all 31 unit tests passed on the paired physical iPhone. Confidently wrong object labels remain a limitation: the display threshold cannot verify a label or add a new class. The local learning workflow uses human-reviewed corrections and held-out evaluation before a replacement can be delivered.
+
+## AWS teacher development status
+
+See [AWS teacher implementation status](docs/AWS_TEACHER_STATUS.md) for the deployed infrastructure, verified live Nova access and previous Support blocker, opt-in phone sampler, live and mock pipeline tests, and unfinished YOLO training work. Publishing source does not deploy infrastructure or update the installed app.
+
+## On-demand local learning
+
+[The local learning workflow](docs/LOCAL_LEARNING.md) provides reviewed dataset curation, CPU YOLO retraining, baseline regression evaluation, CoreML export and signed model delivery from this Mac to the physical iPhone. It can run when requested without waiting for the nightly inventory. No correction-trained weights have been produced: complete reviewed examples, replay coverage, held-out tests and physical candidate acceptance are required first. Cloud responses remain silent proposals and never directly replace live detections.

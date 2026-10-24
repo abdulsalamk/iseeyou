@@ -47,6 +47,9 @@ class TeacherTests(unittest.TestCase):
         self.assertEqual(s3.get_object.call_args_list[1].kwargs['VersionId'], 'image-v1')
         result = json.loads(s3.put_object.call_args.kwargs['Body'])
         self.assertFalse(result['training_eligible'])
+        self.assertEqual(result['status'], 'proposed_only')
+        self.assertEqual(result['inference_attempts'], 1)
+        model.converse.assert_called_once()
         self.assertEqual(result['comparison']['teacher_only_labels'], ['door'])
         self.assertEqual(s3.put_object.call_args.kwargs['IfNoneMatch'], '*')
     @patch.dict(os.environ, {'BUCKET': 'test-bucket', 'MODEL_ID': 'test-model'})
@@ -60,6 +63,53 @@ class TeacherTests(unittest.TestCase):
         with self.assertRaises(ValueError): teacher.process_record(self.record(), s3, model)
         model.converse.assert_not_called()
         s3.put_object.assert_not_called()
+    @patch.dict(os.environ, {'BUCKET': 'test-bucket', 'MODEL_ID': 'test-model', 'TEACHER_MODE': 'mock'})
+    def test_mock_never_invokes_bedrock_or_invents_discrepancies(self):
+        s3, model = Mock(), Mock()
+        s3.list_objects_v2.return_value = {}
+        s3.get_object.side_effect = [{'Body': io.BytesIO(json.dumps(self.manifest()).encode())},
+                                     {'Body': io.BytesIO(b'\x89PNG\r\n\x1a\nimage')}]
+        teacher.process_record(self.record(), s3, model)
+        model.converse.assert_not_called()
+        doc = json.loads(s3.put_object.call_args.kwargs['Body'])
+        self.assertEqual(doc['status'], 'mock_complete')
+        self.assertFalse(doc['training_eligible'])
+        self.assertEqual(doc['comparison']['detector_only_labels'], [])
+    @patch.dict(os.environ, {'BUCKET': 'test-bucket', 'MODEL_ID': 'test-model', 'TEACHER_MODE': 'live'})
+    def test_malformed_live_response_gets_one_validated_correction(self):
+        s3, model = Mock(), Mock()
+        s3.list_objects_v2.return_value = {}
+        s3.get_object.side_effect = [{'Body': io.BytesIO(json.dumps(self.manifest()).encode())},
+                                     {'Body': io.BytesIO(b'\x89PNG\r\n\x1a\nimage')}]
+        def response(text, stop='end_turn'):
+            return {'output': {'message': {'content': [{'text': text}]}},
+                    'stopReason': stop, 'usage': {'inputTokens': 10, 'outputTokens': 5, 'totalTokens': 15}}
+        model.converse.side_effect = [response('{"objects": []}]'),
+                                     response('{"objects": [], "summary": "No identified objects."}')]
+        teacher.process_record(self.record(), s3, model)
+        self.assertEqual(model.converse.call_count, 2)
+        result = json.loads(s3.put_object.call_args.kwargs['Body'])
+        self.assertEqual(result['status'], 'proposed_only')
+        self.assertFalse(result['training_eligible'])
+        self.assertEqual(result['inference_attempts'], 2)
+        self.assertEqual(result['usage'], {'inputTokens': 20, 'outputTokens': 10, 'totalTokens': 30})
+
+    @patch.dict(os.environ, {'BUCKET': 'test-bucket', 'MODEL_ID': 'test-model', 'TEACHER_MODE': 'live'})
+    def test_invalid_or_truncated_responses_never_write_candidates(self):
+        for text, stop in [('invalid json', 'end_turn'), ('{"objects": []}', 'max_tokens'),
+                           ('{"objects": [{"label": "door", "box": [0, 0, 2, 1]}]}', 'end_turn')]:
+            with self.subTest(text=text, stop=stop):
+                s3, model = Mock(), Mock()
+                s3.list_objects_v2.return_value = {}
+                s3.get_object.side_effect = [{'Body': io.BytesIO(json.dumps(self.manifest()).encode())},
+                                             {'Body': io.BytesIO(b'\x89PNG\r\n\x1a\nimage')}]
+                model.converse.return_value = {'output': {'message': {'content': [{'text': text}]}},
+                                               'stopReason': stop}
+                with self.assertRaises(ValueError):
+                    teacher.process_record(self.record(), s3, model)
+                self.assertEqual(model.converse.call_count, 2)
+                s3.put_object.assert_not_called()
+
     @patch.object(teacher, 'clients')
     @patch.object(teacher, 'process_record')
     def test_partial_failures(self, process, clients):

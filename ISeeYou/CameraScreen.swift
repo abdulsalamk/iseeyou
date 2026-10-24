@@ -12,15 +12,7 @@ struct CameraScreen: View {
             VStack(alignment: .leading, spacing: 16) {
                 Text("I See You").font(.largeTitle.bold())
                 Text("OBJECT DETECTION • RESEARCH POC").font(.caption.bold()).foregroundStyle(.secondary)
-                VStack(alignment: .leading, spacing: 4) {
-                    Label("Background teacher: Not running", systemImage: "stop.circle.fill")
-                        .font(.callout.bold())
-                        .foregroundStyle(.red)
-                    Text("Phone sampling is not connected. No frames are being uploaded to the teacher.")
-                        .font(.caption)
-                }
-                .accessibilityElement(children: .combine)
-                .accessibilityIdentifier("backgroundTeacherStatus")
+                BackgroundTeacherPanel(teacher: engine.teacher)
                 Picker("Camera source", selection: $engine.cameraSource) {
                     ForEach(CaptureSource.allCases, id: \.self) { Text($0.rawValue).tag($0) }
                 }
@@ -70,6 +62,14 @@ struct CameraScreen: View {
                 }
                 TwoLineExplanation(text: engine.voiceStatus).font(.caption).accessibilityIdentifier("voiceStatus")
                 TwoLineExplanation(text: engine.status).font(.callout).accessibilityIdentifier("cameraStatus")
+                DisclosureGroup("Detector updates") {
+                    Text(engine.detectorStatus).font(.caption)
+                    Button("Install reviewed model update") { engine.updateDetector() }
+                        .disabled(engine.running || engine.starting || engine.modelUpdateBusy)
+                    Button("Use bundled detector") { engine.updateDetector(useBundled: true) }
+                        .disabled(engine.running || engine.starting || engine.modelUpdateBusy)
+                    Text("Stop the camera before changing models. Updates must pass evaluation and signature checks.").font(.caption)
+                }
                 Text("Received video frames: \(engine.receivedFrames)").font(.caption.monospacedDigit()).accessibilityIdentifier("cameraFrames")
                 ZStack {
                     if engine.cameraSource == .phone { CameraPreview(session: engine.session) }
@@ -141,7 +141,7 @@ struct CameraScreen: View {
                         "\(decision.detection.label) \(Int(decision.detection.confidence * 100))%: \(decision.rationale)"
                     })
                 }
-                Text("Frames stay on this iPhone. Nothing is recorded or uploaded.").font(.footnote)
+                Text(engine.teacher.enabled ? "Teacher sharing is enabled. Sampled clips are uploaded privately; local detection and speech run on this iPhone." : "Teacher sharing is off. No new samples are recorded or uploaded; an in-flight request may finish.").font(.footnote)
                 Text("Experimental prototype. Not a mobility aid or collision-avoidance system. Do not use for road crossing or navigation, or replace a white cane, guide dog, or human assistance.")
                     .font(.footnote).foregroundStyle(.secondary)
             }.padding()
@@ -202,3 +202,24 @@ private struct CameraPreview: UIViewRepresentable {
     func updateUIView(_ view: PreviewSurface, context: Context) {}
 }
 
+
+private struct BackgroundTeacherPanel: View {
+    @ObservedObject var teacher: BackgroundTeacher
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Label("Background teacher: " + teacher.status, systemImage: teacher.light == .verified ? "checkmark.circle.fill" : "circle.fill")
+                .font(.callout.bold()).foregroundStyle(teacher.light.color)
+                .accessibilityIdentifier("backgroundTeacherStatus")
+            Text(teacher.detail).font(.caption)
+            Text(teacher.lastReceipt).font(.caption)
+            Toggle("Share camera samples with the teacher", isOn: $teacher.enabled)
+                .accessibilityHint("Opt in to private camera sample uploads over Wi-Fi while the camera is running.")
+                .accessibilityIdentifier("teacherSharingToggle")
+            DisclosureGroup("What gets shared") {
+                Text("When enabled with the camera running, this pilot records three low-rate frames into a silent three-second clip, about once a minute. It uploads the clip, its first image and matching YOLO predictions over Wi-Fi. It never records microphone audio or other apps.")
+                Text("Up to four clips wait privately on this phone for up to 24 hours. Uploads retry with a bounded backoff. The server accepts up to 50 new samples per UTC day. Raw media expires after seven days; proposed results after thirty days. Battery overhead is not yet measured. Mock results are not AI analysis or training data.")
+            }.font(.caption)
+        }
+        .padding(10).background(.secondary.opacity(0.08)).clipShape(RoundedRectangle(cornerRadius: 10))
+    }
+}

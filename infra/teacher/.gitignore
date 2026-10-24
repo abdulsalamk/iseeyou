@@ -3,3 +3,9 @@
 *.tfstate.*
 *.tfplan
 crash.log
+*.tfvars
+*.tfvars.json
+*.auto.tfvars
+*.auto.tfvars.json
+teacher-connection.json
+device.json
