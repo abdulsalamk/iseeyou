@@ -60,7 +60,7 @@ final class BackgroundTeacher: ObservableObject, @unchecked Sendable {
         else if connection == nil { publish("Not connected", "The private teacher connection has not been configured on this phone.", .error) }
         else { publish("Waiting for camera/sample", "Three low-rate frames form a short clip. Mock test responses are explicitly labelled.", .queued) }
     }
-    func offer(_ buffer: CVPixelBuffer, detections: [Detection], source: String) {
+    func offer(_ buffer: CVPixelBuffer, detections: [Detection], source: String, modelVersion: String) {
         guard connection != nil else { return }
         let now = CACurrentMediaTime()
         let accept = gate.withLock { () -> Bool in
@@ -92,7 +92,7 @@ final class BackgroundTeacher: ObservableObject, @unchecked Sendable {
                 self.publish("Sampling a short clip", "\(self.frames.count) of 3 low-rate frames captured.", .queued)
                 guard self.frames.count == 3 else { return }
                 defer { self.frames.removeAll(); self.gate.withLock { self.nextClip = CACurrentMediaTime() + 60 } }
-                try self.makePendingClip(source: source)
+                try self.makePendingClip(source: source, modelVersion: modelVersion)
                 self.drainPending()
             } catch { self.publish("Sample queued or unavailable", "Teacher work paused; local camera and speech continue.", .error) }
         }
@@ -108,7 +108,7 @@ final class BackgroundTeacher: ObservableObject, @unchecked Sendable {
         let files = (try? FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)) ?? []
         return files.filter { (try? $0.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true }.sorted { $0.lastPathComponent < $1.lastPathComponent }
     }
-    private func makePendingClip(source: String) throws {
+    private func makePendingClip(source: String, modelVersion: String) throws {
         guard pending().count < 4 else { publish("Queue full — sampling paused", "Four clips are waiting. No more samples will be stored until space is available.", .queued); return }
         let id = UUID().uuidString.lowercased(), folder = directory.appendingPathComponent(UUID().uuidString, isDirectory: true)
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
@@ -121,7 +121,7 @@ final class BackgroundTeacher: ObservableObject, @unchecked Sendable {
             guard clip.count <= 6_000_000 else { throw TeacherFailure.message("Clip too large") }
             let first = frames[0]
             let manifest = TeacherManifest(sample_id: id, frame_id: id + "-0", captured_at: ISO8601DateFormatter().string(from: first.capturedAt),
-                model_version: "yolo11n-bundled-coreml", predictions: first.predictions, source: source,
+                model_version: modelVersion, predictions: first.predictions, source: source,
                 duration_seconds: frames.last!.monotonic - first.monotonic + 1, image_size: first.jpeg.count, clip_size: clip.count,
                 image_sha256: Data(SHA256.hash(data: first.jpeg)).base64EncodedString(),
                 clip_sha256: Data(SHA256.hash(data: clip)).base64EncodedString(),

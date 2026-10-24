@@ -62,6 +62,14 @@ struct CameraScreen: View {
                 }
                 TwoLineExplanation(text: engine.voiceStatus).font(.caption).accessibilityIdentifier("voiceStatus")
                 TwoLineExplanation(text: engine.status).font(.callout).accessibilityIdentifier("cameraStatus")
+                DisclosureGroup("Detector updates") {
+                    Text(engine.detectorStatus).font(.caption)
+                    Button("Install reviewed model update") { engine.updateDetector() }
+                        .disabled(engine.running || engine.starting || engine.modelUpdateBusy)
+                    Button("Use bundled detector") { engine.updateDetector(useBundled: true) }
+                        .disabled(engine.running || engine.starting || engine.modelUpdateBusy)
+                    Text("Stop the camera before changing models. Updates must pass evaluation and signature checks.").font(.caption)
+                }
                 Text("Received video frames: \(engine.receivedFrames)").font(.caption.monospacedDigit()).accessibilityIdentifier("cameraFrames")
                 ZStack {
                     if engine.cameraSource == .phone { CameraPreview(session: engine.session) }

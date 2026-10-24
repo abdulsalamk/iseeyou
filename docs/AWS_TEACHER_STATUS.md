@@ -11,7 +11,7 @@ Status updated 24 October 2026 after enabling and testing live Nova Lite inferen
 | Teacher worker | Encrypted SQS, Lambda, partial-batch retries, dead-letter queue, verified live Nova Lite inference, explicit mock mode, bounded response correction | Currently only the first image is analysed, not temporal video content; labels and boxes remain unverified proposals |
 | App teaching mode | Opt-in switch, utility-queue sampler, silent low-rate MP4 encoding, Wi-Fi uploads, bounded local queue, receipt/status display | Final normal Release installation, private device provisioning and live camera-to-cloud testing are pending |
 | Nightly processing | EventBridge schedule, Step Functions, Lambda candidate inventory and an explicit training-skip result | Label verification, curated datasets, historical replay and conditional GPU training are not implemented |
-| YOLO | Existing YOLO11n CoreML detection remains the live local path; export tooling and prediction metadata are retained | No retraining, new weights, held-out model evaluation or automatic model delivery has occurred |
+| YOLO | Bundled YOLO11n remains the live path; on-demand local curation, CPU retraining, held-out object evaluation, CoreML export and signed physical-device delivery tooling are implemented | No new weights have been trained or accepted; reviewed piano/replay data and physical candidate validation are required; no automatic or OTA rollout |
 
 ## Infrastructure already deployed
 
@@ -123,6 +123,10 @@ Live activation verification on 24 October 2026:
 
 No real user camera footage has been uploaded during these tests; the AWS media fixture was generated. No new model weights have been trained, exported or promoted.
 
+## On-demand learning implementation
+
+See [local learning workflow](LOCAL_LEARNING.md) for the new operator-invoked Mac commands, annotation schema, data coverage gates, baseline regression checks, physical acceptance report, signed device handoff and rollback. This does not change the nightly AWS inventory or automatically turn Nova proposals into ground truth. The initial review workspace contains one eligible real sample, still unapproved; no reviewed piano dataset or replacement model exists.
+
 ## Recommended next development steps
 
 1. Review upload authentication, media lifecycle/deletion, source timestamps and queue behaviour. Live Nova access is now verified; recognition and annotation quality are not.
@@ -130,5 +134,5 @@ No real user camera footage has been uploaded during these tests; the AWS media 
 3. Provision the device privately, build/install a normal local Release version, then test opt-in camera-to-cloud capture, errors, offline retries, app relaunch, interruption and receipt recovery. Measure battery, thermal, inference latency and frame drops on both camera sources.
 4. Harden the single-device pilot: per-user/device authentication and revocation, queue/receipt recovery under multiple outstanding uploads, clearer quota feedback, deletion controls, spend limits and alarm notification routing.
 5. Implement semantic and spatial annotation validation plus a versioned curated dataset and historical replay. The current lexical label-set comparison is not validated object matching.
-6. Add sufficient-data checks, reproducible conditional YOLO training, a held-out benchmark and regression/performance gates. The nightly inventory currently performs none of those training/evaluation steps.
-7. Implement signed staged CoreML delivery and rollback only after those gates exist and are tested. Do not automatically replace the working detector with mock or unvalidated outputs.
+6. Run the new local learning workflow once complete reviewed data and historical replay exist. It has sufficient-data checks, reproducible CPU training, held-out object regression gates and physical acceptance requirements. A representative hazard/safety benchmark and conditional cloud training are still separate work; nightly inventory remains unchanged.
+7. Use signed local CoreML handoff and rollback only after candidate acceptance. OTA distribution and automatic rollout are not implemented. Do not replace the working detector with mock or unvalidated outputs.

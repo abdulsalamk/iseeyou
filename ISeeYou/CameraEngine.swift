@@ -13,6 +13,26 @@ enum CaptureSource: String, CaseIterable {
 // All session, model and inference operations are serialized off the main thread.
 final class CameraEngine: NSObject, ObservableObject, AVCaptureVideoDataOutputSampleBufferDelegate, @unchecked Sendable {
     let teacher = BackgroundTeacher()
+    private let modelStore = DetectorModelStore()
+    private var detectorVersion = "yolo11n-bundled-coreml"
+    @Published private(set) var detectorStatus = "Bundled detector · no learned update installed"
+    @Published private(set) var modelUpdateBusy = false
+    func updateDetector(useBundled: Bool = false) {
+        guard !running, !starting, !wantsRunning, !modelUpdateBusy else { return }
+        modelUpdateBusy = true
+        inferenceQueue.async { [self] in
+            do {
+                let version: String
+                if useBundled { try modelStore.useBundled(); version = "yolo11n-bundled-coreml" }
+                else { version = try modelStore.activateStaged() }
+                request = nil
+                try loadModel()
+                DispatchQueue.main.async { [self] in detectorStatus = "Detector: " + version; modelUpdateBusy = false }
+            } catch {
+                DispatchQueue.main.async { [self] in detectorStatus = error.localizedDescription; modelUpdateBusy = false }
+            }
+        }
+    }
     let session = AVCaptureSession()
     @Published var cameraSource: CaptureSource = .phone {
         didSet {
@@ -204,6 +224,7 @@ final class CameraEngine: NSObject, ObservableObject, AVCaptureVideoDataOutputSa
     }
 
     func start() {
+        guard !modelUpdateBusy else { return }
         cameraLog("Start tapped; authorization=\(AVCaptureDevice.authorizationStatus(for: .video).rawValue), wantsRunning=\(wantsRunning)")
         guard !wantsRunning else { return }
         wantsRunning = true
@@ -366,11 +387,10 @@ final class CameraEngine: NSObject, ObservableObject, AVCaptureVideoDataOutputSa
     }
 
     private func loadModel() throws {
-        guard let url = Bundle.main.url(forResource: "yolo11n", withExtension: "mlmodelc") else { return }
-        let config = MLModelConfiguration()
-        config.computeUnits = .cpuAndNeuralEngine
-        request = VNCoreMLRequest(model: try VNCoreMLModel(for: MLModel(contentsOf: url, configuration: config)))
-        request?.imageCropAndScaleOption = .scaleFill
+        if let (loaded, version) = try modelStore.load() {
+            request = loaded; detectorVersion = version
+            DispatchQueue.main.async { [self] in detectorStatus = "Detector: " + version }
+        }
     }
 
     func stop(reason: String = "Camera stopped") {
@@ -508,7 +528,7 @@ final class CameraEngine: NSObject, ObservableObject, AVCaptureVideoDataOutputSa
             let elapsed = end - windowStart
             let rate = Double(frameCount) / max(elapsed, 0.001)
             if elapsed >= 1 { frameCount = 0; windowStart = end }
-            teacher.offer(buffer, detections: results, source: external ? "Meta glasses" : "iPhone camera")
+            teacher.offer(buffer, detections: results, source: external ? "Meta glasses" : "iPhone camera", modelVersion: detectorVersion)
             let heat: String
             switch ProcessInfo.processInfo.thermalState {
             case .nominal: heat = "Nominal"

@@ -84,3 +84,7 @@ The 50% naming fallback is verified by boundary and speech tests; all 31 unit te
 ## AWS teacher development status
 
 See [AWS teacher implementation status](docs/AWS_TEACHER_STATUS.md) for the deployed infrastructure, verified live Nova access and previous Support blocker, opt-in phone sampler, live and mock pipeline tests, and unfinished YOLO training work. Publishing source does not deploy infrastructure or update the installed app.
+
+## On-demand local learning
+
+[The local learning workflow](docs/LOCAL_LEARNING.md) provides reviewed dataset curation, CPU YOLO retraining, baseline regression evaluation, CoreML export and signed model delivery from this Mac to the physical iPhone. It can run when requested without waiting for the nightly inventory. No new piano-trained weights have been produced: complete reviewed examples, replay coverage, held-out tests and physical candidate acceptance are required first. Cloud responses remain silent proposals and never directly replace live detections.

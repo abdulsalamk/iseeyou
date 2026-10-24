@@ -7,11 +7,11 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		4CE776F42FA58F5C326AB840 /* BackgroundTeacher.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A86816ECB0A56ADB3C2FB49 /* BackgroundTeacher.swift */; };
 		035DF8304AF26BFD9152350E /* MWDATCamera in Frameworks */ = {isa = PBXBuildFile; productRef = D09B4074685F6B0F2610D828 /* MWDATCamera */; };
 		0CEA0F598CFA1C302F30B6BC /* Detection.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3D6E97F8AE72201F61A278D /* Detection.swift */; };
 		10E79A33C7A472F2DC20404D /* CameraScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3BD40B7849A3797D5F19112B /* CameraScreen.swift */; };
 		116AB28A72B98C8A921EE0C6 /* DetectionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7196EEBA195DAE7C56F2B1B /* DetectionTests.swift */; };
+		128850145F13D698B5492A42 /* DetectorModelStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF3DF24E4C8D4775B7E7C044 /* DetectorModelStoreTests.swift */; };
 		16D684AC304958B28E29DBB4 /* StableExplanationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58E33C8F482B8B7DAEE6295D /* StableExplanationTests.swift */; };
 		1E47644AFD5660AC23B7E1A0 /* GlassesIntegrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA24844116A0AF544999B99E /* GlassesIntegrationTests.swift */; };
 		1E756CCA753F04FC7F59A5DB /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = EA2E802B1A9666B81B29D5BA /* Assets.xcassets */; };
@@ -25,12 +25,15 @@
 		65AF24B3530A082E638CFBEA /* ISeeYouApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 32001EDD2F139DA2770009E6 /* ISeeYouApp.swift */; };
 		6CE4B5A87531C1B43C16F7A6 /* AudioOutputPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = A94A010CFD8FB909BA10119E /* AudioOutputPicker.swift */; };
 		7901D80DDAAAB9F6FEDE55E9 /* DoorSceneTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B6CACC20AD2F58166BD7A54 /* DoorSceneTests.swift */; };
+		83B6486C4D30112A80372C4F /* BackgroundTeacher.swift in Sources */ = {isa = PBXBuildFile; fileRef = 32AEF4C8BAEBCE15A87B1C06 /* BackgroundTeacher.swift */; };
 		8739CD2CB5D19101793CB727 /* SpeechAlertService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 24B20B9A4C1677D141AC6D05 /* SpeechAlertService.swift */; };
+		9CB9552C0C8941640E06920F /* ModelSigningPublicKey.txt in Resources */ = {isa = PBXBuildFile; fileRef = 3F19D3B9DBE100F74249B0B6 /* ModelSigningPublicKey.txt */; };
 		A05C871FD973BC3BF194D5EB /* StableExplanations.swift in Sources */ = {isa = PBXBuildFile; fileRef = C37037D7BDFF5E098A5316E5 /* StableExplanations.swift */; };
 		A56B2EF436D7AA7D3E4DCD6E /* GlassesVideoDecoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 99A73CE4E77AB13F60B884A6 /* GlassesVideoDecoder.swift */; };
 		AE312A7033320F1DE7B69A92 /* CameraStartupUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5861F32A9B8B6F58AE468FE4 /* CameraStartupUITests.swift */; };
 		B09F0376E5FEE58C64474FB4 /* SurfaceDescriptionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9AB8AE24E71D41CC80D94883 /* SurfaceDescriptionTests.swift */; };
 		B1465570EC3A04CC6380A731 /* HazardAssessment.swift in Sources */ = {isa = PBXBuildFile; fileRef = DDE3EA24702F375E2633F80D /* HazardAssessment.swift */; };
+		B2623BB14877E3E5D07372F7 /* DetectorModelStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC3EE0EBDD4716C85283F31B /* DetectorModelStore.swift */; };
 		BCE03D81011A2D8BF2096D10 /* GlassesSessionDiagnostics.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2EDC7408A4D1B4F7C55CF88 /* GlassesSessionDiagnostics.swift */; };
 		C2BD3A884A35258AC18F365C /* MetricDepthEstimator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1640F8AD5DBE70556ACE3D93 /* MetricDepthEstimator.swift */; };
 		C62C5F845574042624FD4BF6 /* DistanceCalibration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 18C1253FFE89CD39E57072C5 /* DistanceCalibration.swift */; };
@@ -60,7 +63,6 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
-		9A86816ECB0A56ADB3C2FB49 /* BackgroundTeacher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackgroundTeacher.swift; sourceTree = "<group>"; };
 		07CF1EB566389D83D9C95A5F /* ISeeYouTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = ISeeYouTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		07F933631D2672B8D64023DD /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		0B6CACC20AD2F58166BD7A54 /* DoorSceneTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DoorSceneTests.swift; sourceTree = "<group>"; };
@@ -69,7 +71,9 @@
 		24B20B9A4C1677D141AC6D05 /* SpeechAlertService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeechAlertService.swift; sourceTree = "<group>"; };
 		2C7508DF1D254AAC2148091E /* DistanceCalibrationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DistanceCalibrationView.swift; sourceTree = "<group>"; };
 		32001EDD2F139DA2770009E6 /* ISeeYouApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ISeeYouApp.swift; sourceTree = "<group>"; };
+		32AEF4C8BAEBCE15A87B1C06 /* BackgroundTeacher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackgroundTeacher.swift; sourceTree = "<group>"; };
 		3BD40B7849A3797D5F19112B /* CameraScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraScreen.swift; sourceTree = "<group>"; };
+		3F19D3B9DBE100F74249B0B6 /* ModelSigningPublicKey.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = ModelSigningPublicKey.txt; sourceTree = "<group>"; };
 		40C12DB975C3FA2F84C04529 /* DoorPrompts.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = DoorPrompts.json; sourceTree = "<group>"; };
 		424945874503F6B65D68CE61 /* CameraLifecycleTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraLifecycleTests.swift; sourceTree = "<group>"; };
 		431E7E43F4EB735AA497C6A0 /* GlassesVideoDecoderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlassesVideoDecoderTests.swift; sourceTree = "<group>"; };
@@ -85,7 +89,9 @@
 		A4E5DF81288392CEECE248C1 /* MetaGlassesSource.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetaGlassesSource.swift; sourceTree = "<group>"; };
 		A94A010CFD8FB909BA10119E /* AudioOutputPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioOutputPicker.swift; sourceTree = "<group>"; };
 		B3D6E97F8AE72201F61A278D /* Detection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Detection.swift; sourceTree = "<group>"; };
+		BF3DF24E4C8D4775B7E7C044 /* DetectorModelStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DetectorModelStoreTests.swift; sourceTree = "<group>"; };
 		C37037D7BDFF5E098A5316E5 /* StableExplanations.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StableExplanations.swift; sourceTree = "<group>"; };
+		CC3EE0EBDD4716C85283F31B /* DetectorModelStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DetectorModelStore.swift; sourceTree = "<group>"; };
 		D7196EEBA195DAE7C56F2B1B /* DetectionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DetectionTests.swift; sourceTree = "<group>"; };
 		DD308043EA899FBA5CD7843B /* ISeeYou.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = ISeeYou.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		DDE3EA24702F375E2633F80D /* HazardAssessment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HazardAssessment.swift; sourceTree = "<group>"; };
@@ -115,6 +121,7 @@
 			children = (
 				424945874503F6B65D68CE61 /* CameraLifecycleTests.swift */,
 				D7196EEBA195DAE7C56F2B1B /* DetectionTests.swift */,
+				BF3DF24E4C8D4775B7E7C044 /* DetectorModelStoreTests.swift */,
 				0B6CACC20AD2F58166BD7A54 /* DoorSceneTests.swift */,
 				EA24844116A0AF544999B99E /* GlassesIntegrationTests.swift */,
 				431E7E43F4EB735AA497C6A0 /* GlassesVideoDecoderTests.swift */,
@@ -160,11 +167,12 @@
 				7F28077046EAC0EFA7F2F583 /* AlertPolicy.swift */,
 				EA2E802B1A9666B81B29D5BA /* Assets.xcassets */,
 				A94A010CFD8FB909BA10119E /* AudioOutputPicker.swift */,
+				32AEF4C8BAEBCE15A87B1C06 /* BackgroundTeacher.swift */,
 				83A8FA7B540E7FEE73AA20DB /* CameraEngine.swift */,
-				9A86816ECB0A56ADB3C2FB49 /* BackgroundTeacher.swift */,
 				9B855B6D35A156BAD5D646BF /* CameraLifecyclePolicy.swift */,
 				3BD40B7849A3797D5F19112B /* CameraScreen.swift */,
 				B3D6E97F8AE72201F61A278D /* Detection.swift */,
+				CC3EE0EBDD4716C85283F31B /* DetectorModelStore.swift */,
 				18C1253FFE89CD39E57072C5 /* DistanceCalibration.swift */,
 				2C7508DF1D254AAC2148091E /* DistanceCalibrationView.swift */,
 				40C12DB975C3FA2F84C04529 /* DoorPrompts.json */,
@@ -176,6 +184,7 @@
 				32001EDD2F139DA2770009E6 /* ISeeYouApp.swift */,
 				A4E5DF81288392CEECE248C1 /* MetaGlassesSource.swift */,
 				1640F8AD5DBE70556ACE3D93 /* MetricDepthEstimator.swift */,
+				3F19D3B9DBE100F74249B0B6 /* ModelSigningPublicKey.txt */,
 				24B20B9A4C1677D141AC6D05 /* SpeechAlertService.swift */,
 				C37037D7BDFF5E098A5316E5 /* StableExplanations.swift */,
 				955C02047D296CF3D7A468BF /* SurfaceDescription.swift */,
@@ -289,6 +298,7 @@
 			files = (
 				1E756CCA753F04FC7F59A5DB /* Assets.xcassets in Resources */,
 				D71B4AA692B47994A2698550 /* DoorPrompts.json in Resources */,
+				9CB9552C0C8941640E06920F /* ModelSigningPublicKey.txt in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -323,11 +333,12 @@
 			files = (
 				E6527DFD40084760C5EDFEAA /* AlertPolicy.swift in Sources */,
 				6CE4B5A87531C1B43C16F7A6 /* AudioOutputPicker.swift in Sources */,
+				83B6486C4D30112A80372C4F /* BackgroundTeacher.swift in Sources */,
 				4E649F691FE56EE101F80B61 /* CameraEngine.swift in Sources */,
-				4CE776F42FA58F5C326AB840 /* BackgroundTeacher.swift in Sources */,
 				ECBBCEF7FC2F9F4EBB4ABD3A /* CameraLifecyclePolicy.swift in Sources */,
 				10E79A33C7A472F2DC20404D /* CameraScreen.swift in Sources */,
 				0CEA0F598CFA1C302F30B6BC /* Detection.swift in Sources */,
+				B2623BB14877E3E5D07372F7 /* DetectorModelStore.swift in Sources */,
 				C62C5F845574042624FD4BF6 /* DistanceCalibration.swift in Sources */,
 				C9183839BFD0F40049D8A72F /* DistanceCalibrationView.swift in Sources */,
 				63E4E0C084AA842BD34A412E /* DoorSceneClassifier.swift in Sources */,
@@ -349,6 +360,7 @@
 			files = (
 				3F1F95DC3742BF74FF86E0F8 /* CameraLifecycleTests.swift in Sources */,
 				116AB28A72B98C8A921EE0C6 /* DetectionTests.swift in Sources */,
+				128850145F13D698B5492A42 /* DetectorModelStoreTests.swift in Sources */,
 				7901D80DDAAAB9F6FEDE55E9 /* DoorSceneTests.swift in Sources */,
 				1E47644AFD5660AC23B7E1A0 /* GlassesIntegrationTests.swift in Sources */,
 				EC497DF905362C448B36904F /* GlassesVideoDecoderTests.swift in Sources */,
