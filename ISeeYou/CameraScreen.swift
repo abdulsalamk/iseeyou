@@ -68,9 +68,9 @@ struct CameraScreen: View {
                     Text(engine.teacher.modelUpdateStatus).font(.caption)
                     Button("Install reviewed model update") { engine.updateDetector() }
                         .disabled(engine.running || engine.starting || engine.modelUpdateBusy)
-                    Button("Use YOLO11 baseline") { engine.updateDetector(useBaseline: true) }
+                    Button("Use bundled YOLO26 detector") { engine.updateDetector(useBundled: true) }
                         .disabled(engine.running || engine.starting || engine.modelUpdateBusy)
-                    Text("Updates download over Wi-Fi into a staging area. Stop the camera to install; the signature, checksums and Core ML output are verified first. Later camera samples feed Nova comparisons. Use the YOLO11 baseline to roll back.").font(.caption)
+                    Text("Updates download over Wi-Fi into a staging area. Stop the camera to install; the signature, checksums and Core ML output are verified first. Later camera samples feed Nova comparisons. Restore the previous app build to return to YOLO11.").font(.caption)
                 }
                 Text("Received video frames: \(engine.receivedFrames)").font(.caption.monospacedDigit()).accessibilityIdentifier("cameraFrames")
                 ZStack {

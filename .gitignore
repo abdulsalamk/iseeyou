@@ -231,9 +231,6 @@ xcuserdata/
 __pycache__/
 
 # Version the exact POC inference package and its source checkpoint.
-!ISeeYou/Models/yolo11n.mlpackage/
-!ISeeYou/Models/yolo11n.mlpackage/**
-!models/yolo11n.pt
 !ISeeYou/Models/yolo26n.mlpackage/
 !ISeeYou/Models/yolo26n.mlpackage/**
 !models/yolo26n.pt

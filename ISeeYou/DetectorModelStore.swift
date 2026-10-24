@@ -82,9 +82,24 @@ final class DetectorModelStore {
         request.imageCropAndScaleOption = .scaleFill
         return request
     }
+    private func isYOLO11(_ version: String) -> Bool {
+        if version.lowercased().contains("yolo11") { return true }
+        let release = root.appendingPathComponent(version).appendingPathComponent("release.json")
+        guard let data = try? Data(contentsOf: release),
+              let envelope = try? JSONDecoder().decode(Envelope.self, from: data),
+              let payloadData = Data(base64Encoded: envelope.payload),
+              let payload = try? JSONDecoder().decode(Payload.self, from: payloadData) else { return false }
+        return payload.files.contains { $0.path.lowercased().contains("yolo11") }
+    }
     func load() throws -> (VNCoreMLRequest, String)? {
         lock.lock(); defer { lock.unlock() }
-        let saved = state()
+        var saved = state()
+        // Remove a YOLO11 update installed by an earlier app build while keeping unrelated app data.
+        let staleVersions = [saved.current, saved.previous].compactMap { $0 }.filter { safeVersion($0) && isYOLO11($0) }
+        for version in staleVersions { try? fm.removeItem(at: root.appendingPathComponent(version)) }
+        if saved.current.map(isYOLO11) == true { saved.current = nil }
+        if saved.previous.map(isYOLO11) == true { saved.previous = nil }
+        if !staleVersions.isEmpty { try save(saved) }
         for version in [saved.current, saved.previous].compactMap({ $0 }) where safeVersion(version) {
             if version.hasSuffix("-bundled-coreml") {
                 let name = String(version.dropLast("-bundled-coreml".count))
@@ -96,12 +111,9 @@ final class DetectorModelStore {
                 return (request, version)
             }
         }
-        for name in ["yolo26n", "yolo11n"] {
-            guard let bundled = Bundle.main.url(forResource: name, withExtension: "mlmodelc"),
-                  let request = try? Self.request(at: bundled) else { continue }
-            return (request, name + "-bundled-coreml")
-        }
-        return nil
+        guard let bundled = Bundle.main.url(forResource: "yolo26n", withExtension: "mlmodelc"),
+              let request = try? Self.request(at: bundled) else { return nil }
+        return (request, "yolo26n-bundled-coreml")
     }
     func activateStaged() throws -> String {
         lock.lock(); defer { lock.unlock() }
@@ -142,9 +154,9 @@ final class DetectorModelStore {
         try? fm.removeItem(at: stage)
         return payload.version
     }
-    func useYOLO11Baseline() throws {
+    func useBundled() throws {
         lock.lock(); defer { lock.unlock() }
-        try save(State(current: "yolo11n-bundled-coreml", previous: nil))
+        try save(State())
     }
     func stagedVersion() -> String? {
         lock.lock(); defer { lock.unlock() }

@@ -17,15 +17,15 @@ final class CameraEngine: NSObject, ObservableObject, AVCaptureVideoDataOutputSa
     private var detectorVersion = "yolo26n-bundled-coreml"
     @Published private(set) var detectorStatus = "Bundled detector · no learned update installed"
     @Published private(set) var modelUpdateBusy = false
-    func updateDetector(useBaseline: Bool = false) {
+    func updateDetector(useBundled: Bool = false) {
         guard !running, !starting, !wantsRunning, !modelUpdateBusy else { return }
         modelUpdateBusy = true
         inferenceQueue.async { [self] in
             let previousVersion = detectorVersion
             do {
                 let version: String
-                if useBaseline {
-                    try modelStore.useYOLO11Baseline()
+                if useBundled {
+                    try modelStore.useBundled()
                     request = nil
                     try loadModel()
                     version = detectorVersion
@@ -34,7 +34,7 @@ final class CameraEngine: NSObject, ObservableObject, AVCaptureVideoDataOutputSa
                     request = nil
                     try loadModel()
                 }
-                if useBaseline {
+                if useBundled {
                     if previousVersion != version {
                         teacher.reportModelFeedback(version: previousVersion, action: "rollback", activeModel: version)
                     }
@@ -43,7 +43,7 @@ final class CameraEngine: NSObject, ObservableObject, AVCaptureVideoDataOutputSa
                 }
                 DispatchQueue.main.async { [self] in detectorStatus = "Detector: " + version; modelUpdateBusy = false }
             } catch {
-                if !useBaseline, let failedVersion = modelStore.stagedVersion() {
+                if !useBundled, let failedVersion = modelStore.stagedVersion() {
                     teacher.reportModelFeedback(version: failedVersion, action: "activation_failed", activeModel: previousVersion,
                                                 errorCode: error.localizedDescription.lowercased().contains("signature") ? "signature" : "compatibility")
                 }
@@ -408,6 +408,10 @@ final class CameraEngine: NSObject, ObservableObject, AVCaptureVideoDataOutputSa
         if let (loaded, version) = try modelStore.load() {
             request = loaded; detectorVersion = version
             DispatchQueue.main.async { [self] in detectorStatus = "Detector: " + version }
+        } else {
+            request = nil
+            detectorVersion = "unavailable"
+            DispatchQueue.main.async { [self] in detectorStatus = "YOLO26 Core ML model is not installed; object detection is paused." }
         }
     }
 

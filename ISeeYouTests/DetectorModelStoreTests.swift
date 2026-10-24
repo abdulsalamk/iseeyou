@@ -42,14 +42,12 @@ final class DetectorModelStoreTests: XCTestCase {
             XCTAssertThrowsError(try store.verifiedPayload(envelope: envelope, package: dir))
         }
     }
-    func testMissingUpdateLeavesYOLO11BaselineUsable() throws {
+    func testMissingUpdateDoesNotSelectAStaleBundledModel() throws {
         let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: dir) }
         let store = DetectorModelStore(root: dir, documents: dir)
         XCTAssertThrowsError(try store.activateStaged())
-        XCTAssertEqual(try store.load()?.1, "yolo11n-bundled-coreml")
-        try store.useYOLO11Baseline()
-        XCTAssertEqual(try store.load()?.1, "yolo11n-bundled-coreml")
+        XCTAssertNil(try store.load(), "No bundled detector should be selected until YOLO26 is exported")
     }
     /// Opt-in static-image benchmark. Merely running UnitChecks does not capture or upload.
     func testStagedCandidateBenchmark() throws {
@@ -68,7 +66,11 @@ final class DetectorModelStoreTests: XCTestCase {
         let compiled = try MLModel.compileModel(at: stage.appendingPathComponent("candidate.mlpackage"))
         defer { try? FileManager.default.removeItem(at: compiled) }
         let candidate = try DetectorModelStore.request(at: compiled)
-        let baseline = try DetectorModelStore.request(at: XCTUnwrap(Bundle.main.url(forResource: "yolo11n", withExtension: "mlmodelc")))
+        let baselinePackage = stage.appendingPathComponent("baseline.mlpackage")
+        guard FileManager.default.fileExists(atPath: baselinePackage.path) else { throw XCTSkip("YOLO11 baseline package not staged") }
+        let baselineCompiled = try MLModel.compileModel(at: baselinePackage)
+        defer { try? FileManager.default.removeItem(at: baselineCompiled) }
+        let baseline = try DetectorModelStore.request(at: baselineCompiled)
         var results: [[String: Any]] = [], times: [Double] = []
         for image in spec.images {
             guard image == URL(fileURLWithPath: image).lastPathComponent else { XCTFail("Unsafe image path"); return }

@@ -8,11 +8,11 @@ Native SwiftUI, AVFoundation, Vision and Core ML application implementing milest
 2. Open `ISeeYou.xcodeproj`. Select the ISeeYou target, choose your development team in Signing & Capabilities, and change `com.iseeyou.research` to your own unique identifier.
 3. Connect your standard iPhone 16, trust the Mac, enable Developer Mode and select it as the run destination. Press Cmd+R.
 4. Tap **Start camera** and grant camera permission. Nothing is recorded or uploaded. Returning from the background requires tapping Start again.
-5. This branch prefers YOLO26n when its Core ML package is present and retains YOLO11n as an explicit fallback. The YOLO26n package has not yet been exported into this checkout, so the current build continues with YOLO11n; `main` and the live-baseline tag remain the stable reference.
+5. This branch contains no YOLO11 model files. The YOLO26n package has not yet been exported into this checkout, so builds from this branch run with object detection paused until the YOLO26 package is added. The YOLO11 baseline remains available on `main` and at `baseline/live-yolo11-2026-10-24` for restoration. Removing YOLO11 from this working tree does not delete that baseline.
 
 ## YOLO26n candidate model setup
 
-The YOLO26 checkpoint is at `models/yolo26n.pt`; its exported package will be at `ISeeYou/Models/yolo26n.mlpackage`. The YOLO11 comparison checkpoint and Core ML package remain at `models/yolo11n.pt` and `ISeeYou/Models/yolo11n.mlpackage`. See [model provenance and checksums](models/README.md). To export YOLO26, use a separate Python 3.11 environment on the Mac with at least 3 GB free disk space:
+The YOLO26 checkpoint is at `models/yolo26n.pt`; its exported package will be at `ISeeYou/Models/yolo26n.mlpackage`. YOLO11 assets are intentionally absent from this branch; restore them from the baseline tag when a comparison requires them. See [model provenance and checksums](models/README.md). To export YOLO26, use a separate Python 3.11 environment on the Mac with at least 3 GB free disk space:
 
 ```sh
 python3.11 -m venv .venv
