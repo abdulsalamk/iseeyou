@@ -83,4 +83,4 @@ The 50% naming fallback is verified by boundary and speech tests; all 31 unit te
 
 ## AWS teacher development status
 
-See [AWS teacher implementation status](docs/AWS_TEACHER_STATUS.md) for the deployed infrastructure, Nova access blocker and Support case, opt-in phone sampler, mock pipeline tests, and unfinished YOLO training work. Publishing source does not deploy infrastructure or update the installed app.
+See [AWS teacher implementation status](docs/AWS_TEACHER_STATUS.md) for the deployed infrastructure, verified live Nova access and previous Support blocker, opt-in phone sampler, live and mock pipeline tests, and unfinished YOLO training work. Publishing source does not deploy infrastructure or update the installed app.
