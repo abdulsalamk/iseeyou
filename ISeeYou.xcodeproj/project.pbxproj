@@ -202,7 +202,7 @@
 				64AD8DFCF705EFF8C835FCA4 /* Sources */,
 				818C84482742E27107DB6740 /* Resources */,
 				D910A176161769D04069070F /* Frameworks */,
-				C2209BCEAD2D64E3DA519E5A /* Compile optional YOLO11n model */,
+				C2209BCEAD2D64E3DA519E5A /* Compile detector Core ML models */,
 			);
 			buildRules = (
 			);
@@ -305,7 +305,7 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
-		C2209BCEAD2D64E3DA519E5A /* Compile optional YOLO11n model */ = {
+		C2209BCEAD2D64E3DA519E5A /* Compile detector Core ML models */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
 			buildActionMask = 2147483647;
@@ -315,14 +315,14 @@
 			);
 			inputPaths = (
 			);
-			name = "Compile optional YOLO11n model";
+			name = "Compile detector Core ML models";
 			outputFileListPaths = (
 			);
 			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "if [ -d \"$SRCROOT/ISeeYou/Models/yolo11n.mlpackage\" ]; then\n  mkdir -p \"$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH\"\n  xcrun coremlcompiler compile \"$SRCROOT/ISeeYou/Models/yolo11n.mlpackage\" \"$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH\"\nfi\nif [ -d \"$SRCROOT/ISeeYou/Models/MetricDepthSmall.mlpackage\" ]; then\n  xcrun coremlcompiler compile \"$SRCROOT/ISeeYou/Models/MetricDepthSmall.mlpackage\" \"$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH\"\nfi\nif [ -d \"$SRCROOT/ISeeYou/Models/DoorSceneImage.mlpackage\" ]; then\n  xcrun coremlcompiler compile \"$SRCROOT/ISeeYou/Models/DoorSceneImage.mlpackage\" \"$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH\"\nfi\n";
+			shellScript = "if [ -d \"$SRCROOT/ISeeYou/Models/yolo26n.mlpackage\" ]; then\n  mkdir -p \"$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH\"\n  xcrun coremlcompiler compile \"$SRCROOT/ISeeYou/Models/yolo26n.mlpackage\" \"$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH\"\nfi\nif [ -d \"$SRCROOT/ISeeYou/Models/yolo11n.mlpackage\" ]; then\n  mkdir -p \"$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH\"\n  xcrun coremlcompiler compile \"$SRCROOT/ISeeYou/Models/yolo11n.mlpackage\" \"$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH\"\nfi\nif [ -d \"$SRCROOT/ISeeYou/Models/MetricDepthSmall.mlpackage\" ]; then\n  xcrun coremlcompiler compile \"$SRCROOT/ISeeYou/Models/MetricDepthSmall.mlpackage\" \"$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH\"\nfi\nif [ -d \"$SRCROOT/ISeeYou/Models/DoorSceneImage.mlpackage\" ]; then\n  xcrun coremlcompiler compile \"$SRCROOT/ISeeYou/Models/DoorSceneImage.mlpackage\" \"$TARGET_BUILD_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH\"\nfi\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 

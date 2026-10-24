@@ -192,7 +192,7 @@ def train(args):
     dest = Path(args.output).resolve()
     require(not dest.exists(), 'Run output already exists')
     from ultralytics import YOLO
-    model = YOLO(str(ROOT / 'models/yolo11n.pt'))
+    model = YOLO(str(ROOT / 'models/yolo26n.pt'))
     require(list(model.names.values()) == COCO, 'Baseline class IDs do not match')
     # Ultralytics creates label caches. Fit in a run-local copy so the curated dataset stays immutable.
     dest.mkdir(parents=True)
@@ -209,7 +209,7 @@ def train(args):
     packages = subprocess.run([sys.executable, '-m', 'pip', 'freeze'], capture_output=True, text=True, check=True).stdout
     (dest / 'requirements-lock.txt').write_text(packages)
     write(dest / 'run.json', {'dataset_sha256': digest, 'checkpoint_sha256': sha(checkpoint),
-                            'baseline_sha256': sha(ROOT / 'models/yolo11n.pt'), 'epochs': args.epochs, 'seed': 2026, 'device': 'cpu'})
+                            'baseline_sha256': sha(ROOT / 'models/yolo26n.pt'), 'epochs': args.epochs, 'seed': 2026, 'device': 'cpu'})
     print('Training complete; candidate is not approved or installed')
 
 
@@ -281,15 +281,44 @@ def evaluate(args):
     require(list(candidate.names.values()) == names, 'Candidate class IDs do not match the reviewed dataset')
     rows = [s for s in review['samples'] if s['split'] == 'test']
     truth = {s['id']: s['objects'] for s in rows}
-    baseline = metrics(truth, predict(YOLO(str(ROOT / 'models/yolo11n.pt')), dataset, rows), names)
+    baseline = metrics(truth, predict(YOLO(str(ROOT / 'models/yolo26n.pt')), dataset, rows), names)
     proposed = metrics(truth, predict(candidate, dataset, rows), names)
     failures = gate(baseline, proposed, names)
     require(not Path(args.output).exists(), 'Evaluation output already exists')
     write(args.output, {'schema_version': 1, 'names': names, 'dataset_sha256': digest, 'checkpoint_sha256': sha(checkpoint),
-                       'baseline_sha256': sha(ROOT / 'models/yolo11n.pt'), 'baseline': baseline, 'candidate': proposed,
+                       'baseline_sha256': sha(ROOT / 'models/yolo26n.pt'), 'baseline': baseline, 'candidate': proposed,
                        'failures': failures, 'quality_passed': not failures,
                        'deployment_approved': False, 'note': 'Object-label benchmark only; physical CoreML performance and safety signoff still required'})
     print('Quality passed; device verification still required' if not failures else 'Candidate rejected: ' + '; '.join(failures))
+    return 0 if not failures else 2
+
+
+def compare(args):
+    """Compare pretrained YOLO26 and the live YOLO11 baseline on identical held-out images."""
+    dataset, digest = check_dataset(args.dataset)
+    baseline_path, candidate_path = Path(args.baseline).resolve(), Path(args.candidate).resolve()
+    require(baseline_path.is_file() and candidate_path.is_file(), 'Both model checkpoints must exist')
+    require(sha(baseline_path) != sha(candidate_path), 'Baseline and candidate checkpoints are identical')
+    from ultralytics import YOLO, __version__
+    baseline, candidate = YOLO(str(baseline_path)), YOLO(str(candidate_path))
+    review = load(dataset / 'review.json')
+    names = validate_names(review)
+    require(list(baseline.names.values()) == names, 'YOLO11 class IDs do not match the reviewed dataset')
+    require(list(candidate.names.values()) == names, 'YOLO26 class IDs do not match the reviewed dataset')
+    rows = [sample for sample in review['samples'] if sample['split'] == 'test']
+    truth = {sample['id']: sample['objects'] for sample in rows}
+    before = metrics(truth, predict(baseline, dataset, rows), names)
+    after = metrics(truth, predict(candidate, dataset, rows), names)
+    failures = gate(before, after, names)
+    require(not Path(args.output).exists(), 'Comparison output already exists')
+    write(args.output, {'schema_version': 1, 'dataset_sha256': digest,
+        'baseline': {'model': 'YOLO11n', 'checkpoint_sha256': sha(baseline_path), 'metrics': before},
+        'candidate': {'model': 'YOLO26n', 'checkpoint_sha256': sha(candidate_path), 'metrics': after},
+        'ultralytics_version': __version__, 'failures': failures, 'quality_passed': not failures,
+        'deployment_approved': False,
+        'note': 'Offline checkpoint comparison only; Core ML conversion and physical-device acceptance are still required'})
+    print('YOLO26 quality gates passed; physical-device verification is still required' if not failures
+          else 'YOLO26 rejected: ' + '; '.join(failures))
     return 0 if not failures else 2
 
 
@@ -304,7 +333,7 @@ def export(args):
     model = YOLO(str(checkpoint))
     names = report.get('names')
     require(isinstance(names, list) and list(model.names.values()) == names, 'Unexpected class mapping')
-    package = Path(model.export(format='coreml', imgsz=640, nms=True, half=True, device='cpu', conf=.001))
+    package = Path(model.export(format='coreml', imgsz=640, nms=True, quantize=16, device='cpu', conf=.001))
     shutil.copytree(package, dest)
     files = package_files(dest)
     write(dest.parent / (dest.name + '.evaluation.json'), {'evaluation_sha256': sha(args.evaluation),
@@ -419,6 +448,7 @@ def main():
     p = sub.add_parser('curate'); p.add_argument('--review', required=True); p.add_argument('--output', required=True)
     p = sub.add_parser('train'); p.add_argument('--dataset', required=True); p.add_argument('--output', required=True); p.add_argument('--epochs', type=int, default=30)
     p = sub.add_parser('evaluate'); p.add_argument('--dataset', required=True); p.add_argument('--checkpoint', required=True); p.add_argument('--output', required=True)
+    p = sub.add_parser('compare'); p.add_argument('--dataset', required=True); p.add_argument('--baseline', default=str(ROOT / 'models/yolo11n.pt')); p.add_argument('--candidate', default=str(ROOT / 'models/yolo26n.pt')); p.add_argument('--output', required=True)
     p = sub.add_parser('export'); p.add_argument('--evaluation', required=True); p.add_argument('--checkpoint', required=True); p.add_argument('--output', required=True)
     p = sub.add_parser('stage-validation'); p.add_argument('--package', required=True); p.add_argument('--dataset', required=True); p.add_argument('--device', required=True)
     p = sub.add_parser('release'); p.add_argument('--package', required=True); p.add_argument('--device-report', required=True); p.add_argument('--version', required=True); p.add_argument('--key', required=True); p.add_argument('--output', required=True)

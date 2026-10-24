@@ -86,12 +86,22 @@ final class DetectorModelStore {
         lock.lock(); defer { lock.unlock() }
         let saved = state()
         for version in [saved.current, saved.previous].compactMap({ $0 }) where safeVersion(version) {
+            if version.hasSuffix("-bundled-coreml") {
+                let name = String(version.dropLast("-bundled-coreml".count))
+                if let bundled = Bundle.main.url(forResource: name, withExtension: "mlmodelc"),
+                   let request = try? Self.request(at: bundled) { return (request, version) }
+                continue
+            }
             if let request = try? Self.request(at: root.appendingPathComponent(version).appendingPathComponent("model.mlmodelc")) {
                 return (request, version)
             }
         }
-        guard let bundled = Bundle.main.url(forResource: "yolo11n", withExtension: "mlmodelc") else { return nil }
-        return (try Self.request(at: bundled), "yolo11n-bundled-coreml")
+        for name in ["yolo26n", "yolo11n"] {
+            guard let bundled = Bundle.main.url(forResource: name, withExtension: "mlmodelc"),
+                  let request = try? Self.request(at: bundled) else { continue }
+            return (request, name + "-bundled-coreml")
+        }
+        return nil
     }
     func activateStaged() throws -> String {
         lock.lock(); defer { lock.unlock() }
@@ -132,9 +142,9 @@ final class DetectorModelStore {
         try? fm.removeItem(at: stage)
         return payload.version
     }
-    func useBundled() throws {
+    func useYOLO11Baseline() throws {
         lock.lock(); defer { lock.unlock() }
-        var saved = state(); saved.previous = nil; saved.current = nil; try save(saved)
+        try save(State(current: "yolo11n-bundled-coreml", previous: nil))
     }
     func stagedVersion() -> String? {
         lock.lock(); defer { lock.unlock() }

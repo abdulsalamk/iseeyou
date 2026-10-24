@@ -14,22 +14,28 @@ enum CaptureSource: String, CaseIterable {
 final class CameraEngine: NSObject, ObservableObject, AVCaptureVideoDataOutputSampleBufferDelegate, @unchecked Sendable {
     let teacher = BackgroundTeacher()
     private let modelStore = DetectorModelStore()
-    private var detectorVersion = "yolo11n-bundled-coreml"
+    private var detectorVersion = "yolo26n-bundled-coreml"
     @Published private(set) var detectorStatus = "Bundled detector · no learned update installed"
     @Published private(set) var modelUpdateBusy = false
-    func updateDetector(useBundled: Bool = false) {
+    func updateDetector(useBaseline: Bool = false) {
         guard !running, !starting, !wantsRunning, !modelUpdateBusy else { return }
         modelUpdateBusy = true
         inferenceQueue.async { [self] in
             let previousVersion = detectorVersion
             do {
                 let version: String
-                if useBundled { try modelStore.useBundled(); version = "yolo11n-bundled-coreml" }
-                else { version = try modelStore.activateStaged() }
-                request = nil
-                try loadModel()
-                if useBundled {
-                    if previousVersion != "yolo11n-bundled-coreml" {
+                if useBaseline {
+                    try modelStore.useYOLO11Baseline()
+                    request = nil
+                    try loadModel()
+                    version = detectorVersion
+                } else {
+                    version = try modelStore.activateStaged()
+                    request = nil
+                    try loadModel()
+                }
+                if useBaseline {
+                    if previousVersion != version {
                         teacher.reportModelFeedback(version: previousVersion, action: "rollback", activeModel: version)
                     }
                 } else {
@@ -37,7 +43,7 @@ final class CameraEngine: NSObject, ObservableObject, AVCaptureVideoDataOutputSa
                 }
                 DispatchQueue.main.async { [self] in detectorStatus = "Detector: " + version; modelUpdateBusy = false }
             } catch {
-                if !useBundled, let failedVersion = modelStore.stagedVersion() {
+                if !useBaseline, let failedVersion = modelStore.stagedVersion() {
                     teacher.reportModelFeedback(version: failedVersion, action: "activation_failed", activeModel: previousVersion,
                                                 errorCode: error.localizedDescription.lowercased().contains("signature") ? "signature" : "compatibility")
                 }
@@ -501,7 +507,7 @@ final class CameraEngine: NSObject, ObservableObject, AVCaptureVideoDataOutputSa
                     self.alerts.reset()
                     self.hazardDecisions = []
                     self.detections = []
-                    self.status = "Unsupported model outputs. Export YOLO11n with nms=True."
+                    self.status = "Unsupported model outputs. Export the detector with embedded NMS for Vision."
                 }
                 return
             }

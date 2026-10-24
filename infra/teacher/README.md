@@ -27,3 +27,5 @@ The worker permits one validated correction attempt for malformed or incomplete 
 The original image-only manual uploader remains in `scripts/aws/upload_teacher_sample.py` for controlled tests. It requires explicit consent and a local AWS profile. It bypasses the phone API's ticket quota because it uses administrator-authorised AWS access; it is not a production ingestion client.
 
 The session-close learning resources and $12 monthly AWS budget action are deployed in London. A generated synthetic-only session verified Nova labeling and the coverage gate; it did not meet training coverage, so no SageMaker job was created. Training code and the baseline checkpoint are stored privately in S3. Applying the stack does not itself start SageMaker training.
+
+The YOLO26 feature branch changes the training baseline and exporter to YOLO26n, but this branch has not been applied to AWS and has not started training. `main` and the live phone remain at YOLO11n until the YOLO26 package passes the issue's held-out and physical-device gates.

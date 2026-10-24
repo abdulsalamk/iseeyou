@@ -42,13 +42,13 @@ final class DetectorModelStoreTests: XCTestCase {
             XCTAssertThrowsError(try store.verifiedPayload(envelope: envelope, package: dir))
         }
     }
-    func testMissingUpdateLeavesBundledDetectorUsable() throws {
+    func testMissingUpdateLeavesYOLO11BaselineUsable() throws {
         let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: dir) }
         let store = DetectorModelStore(root: dir, documents: dir)
         XCTAssertThrowsError(try store.activateStaged())
         XCTAssertEqual(try store.load()?.1, "yolo11n-bundled-coreml")
-        try store.useBundled()
+        try store.useYOLO11Baseline()
         XCTAssertEqual(try store.load()?.1, "yolo11n-bundled-coreml")
     }
     /// Opt-in static-image benchmark. Merely running UnitChecks does not capture or upload.
