@@ -376,6 +376,42 @@ def deliver(args):
     print('Staged on iPhone. Relaunch while stopped to verify/compile; camera never starts automatically. Roll back using Use bundled detector.')
 
 
+def publish(args):
+    """Publish an already signed, physically reviewed release for phone pull."""
+    release_dir = Path(args.release).resolve()
+    release_file, payload_file = release_dir / 'release.json', release_dir / 'payload.json'
+    package = release_dir / 'candidate.mlpackage'
+    require(release_file.is_file() and payload_file.is_file() and package.is_dir(), 'Expected a signed release directory')
+    subprocess.run(['swift', str(ROOT / 'scripts/learning/sign.swift'), 'verify',
+                    str(ROOT / 'ISeeYou/ModelSigningPublicKey.txt'), str(release_file), str(payload_file)], check=True)
+    payload = load(payload_file)
+    version = payload.get('version', '')
+    require(isinstance(version, str) and version.replace('-', '').isalnum() and 1 <= len(version) <= 80,
+            'Invalid release version')
+    files = package_files(package)
+    require(files == payload.get('files'), 'Package does not match the signed inventory')
+    require(len(files) <= 64 and sum(row['size'] for row in files) <= 100_000_000, 'Release exceeds phone limits')
+    require(aws('sts', 'get-caller-identity')['Account'] == '885625664603', 'Wrong AWS account')
+    bucket = 'iseeyou-teacher-data-885625664603-eu-west-2'
+    prefix = f'learning/releases/{version}'
+    # Release versions are immutable. The pointer only moves after every file
+    # and the signed envelope are stored successfully.
+    for row in files:
+        key = f"{prefix}/candidate.mlpackage/{row['path']}"
+        aws('s3api', 'put-object', '--bucket', bucket, '--key', key, '--body', str(package / row['path']),
+            '--server-side-encryption', 'AES256', '--if-none-match', '*', '--content-type', 'application/octet-stream')
+    release_key = prefix + '/release.json'
+    aws('s3api', 'put-object', '--bucket', bucket, '--key', release_key, '--body', str(release_file),
+        '--server-side-encryption', 'AES256', '--if-none-match', '*', '--content-type', 'application/json')
+    record = {'id': {'S': 'model-release#' + version}, 'version': {'S': version}, 'release_key': {'S': release_key},
+              'file_count': {'N': str(len(files))}, 'published_at': {'S': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())}}
+    aws('dynamodb', 'put-item', '--table-name', 'iseeyou-teacher-uploads', '--item', json.dumps(record),
+        '--condition-expression', 'attribute_not_exists(id)')
+    latest = {'id': {'S': 'model-release#latest'}, 'version': {'S': version}, 'release_key': {'S': release_key}}
+    aws('dynamodb', 'put-item', '--table-name', 'iseeyou-teacher-uploads', '--item', json.dumps(latest))
+    print('Signed model release published. It is staged on phones after download and still requires explicit installation.')
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest='command', required=True)
@@ -387,6 +423,7 @@ def main():
     p = sub.add_parser('stage-validation'); p.add_argument('--package', required=True); p.add_argument('--dataset', required=True); p.add_argument('--device', required=True)
     p = sub.add_parser('release'); p.add_argument('--package', required=True); p.add_argument('--device-report', required=True); p.add_argument('--version', required=True); p.add_argument('--key', required=True); p.add_argument('--output', required=True)
     p = sub.add_parser('deliver'); p.add_argument('--release', required=True); p.add_argument('--device', required=True)
+    p = sub.add_parser('publish'); p.add_argument('--release', required=True)
     args = parser.parse_args()
     try:
         return globals()[args.command.replace('-', '_')](args) or 0

@@ -88,6 +88,20 @@ resource "aws_s3_bucket_lifecycle_configuration" "data" {
     expiration { days = 30 }
     noncurrent_version_expiration { noncurrent_days = 1 }
   }
+  rule {
+    id     = "learning-data-retention"
+    status = "Enabled"
+    filter { prefix = "learning/datasets/" }
+    expiration { days = 30 }
+    noncurrent_version_expiration { noncurrent_days = 1 }
+  }
+  rule {
+    id     = "learning-model-retention"
+    status = "Enabled"
+    filter { prefix = "learning/models/" }
+    expiration { days = 90 }
+    noncurrent_version_expiration { noncurrent_days = 1 }
+  }
 }
 resource "aws_sqs_queue" "dead" {
   name                      = "${local.name}-dead"
@@ -135,6 +149,7 @@ resource "aws_iam_role_policy" "worker" {
     { Effect = "Allow", Action = ["s3:GetObject", "s3:GetObjectVersion"], Resource = "${aws_s3_bucket.data.arn}/raw/*" },
     { Effect = "Allow", Action = ["s3:GetObject", "s3:PutObject"], Resource = "${aws_s3_bucket.data.arn}/candidates/*" },
     { Effect = "Allow", Action = ["bedrock:InvokeModel"], Resource = "arn:aws:bedrock:eu-west-2::foundation-model/${var.teacher_model_id}" },
+    { Effect = "Allow", Action = ["dynamodb:GetItem", "dynamodb:PutItem", "dynamodb:UpdateItem"], Resource = aws_dynamodb_table.uploads.arn },
     { Effect = "Allow", Action = ["logs:CreateLogStream", "logs:PutLogEvents"], Resource = "${aws_cloudwatch_log_group.worker.arn}:*" }
   ] })
 }
@@ -154,7 +169,7 @@ resource "aws_lambda_function" "worker" {
   timeout                        = 120
   memory_size                    = 256
   reserved_concurrent_executions = 2
-  environment { variables = { BUCKET = aws_s3_bucket.data.id, MODEL_ID = var.teacher_model_id, TEACHER_MODE = var.teacher_mode } }
+  environment { variables = { BUCKET = aws_s3_bucket.data.id, TABLE = aws_dynamodb_table.uploads.id, MODEL_ID = var.teacher_model_id, TEACHER_MODE = var.teacher_mode, PIPELINE_SOFT_LIMIT_GBP = "8.00", NOVA_FRAME_RESERVE_GBP = "0.05" } }
   depends_on = [aws_iam_role_policy.worker]
 }
 resource "aws_lambda_event_source_mapping" "samples" {

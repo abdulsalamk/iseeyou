@@ -1,17 +1,18 @@
 # I See You: AWS teacher development snapshot
 
-Status updated 24 October 2026 after enabling and testing live Nova Lite inference in London. This remains an issue 3 pilot, not a completed automatic YOLO training system. No phone installation, personal camera upload, training or model promotion was performed during live activation.
+Status updated 24 October 2026 after deploying the session-end learning path to the London teacher stack and installing the signed YOLO11 app build on the physical iPhone. Only generated synthetic fixtures were used for cloud workflow checks; no personal camera upload, SageMaker training job or model promotion was performed.
 
 ## Implementation at a glance
 
 | Area | Implemented | Still incomplete |
 | --- | --- | --- |
 | Terraform foundation | London S3 remote state, versioning, encryption, public-access blocking, TLS-only policy, native S3 state locking; repository-scoped GitHub OIDC | Deployment CI for the teacher stack is not configured; the OIDC role only has state access |
-| Media ingestion | Private S3, signed image/MP4 uploads, SHA256 and size verification, immutable writes, completion receipts, version-pinned manifests | Single-device pilot token, not multi-user identity; no user-facing remote deletion workflow |
-| Teacher worker | Encrypted SQS, Lambda, partial-batch retries, dead-letter queue, verified live Nova Lite inference, explicit mock mode, bounded response correction | Currently only the first image is analysed, not temporal video content; labels and boxes remain unverified proposals |
-| App teaching mode | Opt-in switch, utility-queue sampler, silent low-rate MP4 encoding, Wi-Fi uploads, bounded local queue, receipt/status display | Final normal Release installation, private device provisioning and live camera-to-cloud testing are pending |
-| Nightly processing | EventBridge schedule, Step Functions, Lambda candidate inventory and an explicit training-skip result | Label verification, curated datasets, historical replay and conditional GPU training are not implemented |
-| YOLO | Bundled YOLO11n remains the live path; on-demand local curation, CPU retraining, held-out object evaluation, CoreML export and signed physical-device delivery tooling are implemented | No new weights have been trained or accepted; reviewed correction/replay data and physical candidate validation are required; no automatic or OTA rollout |
+| Media ingestion | Signed image/MP4 API plus session IDs, three individually uploaded camera frames, and an idempotent session-close endpoint | Current pilot still uses one device token |
+| Teacher worker | Encrypted SQS/Lambda/Bedrock worker requests per-frame object boxes and compares Nova labels with detector outputs; Nova starts after session close | Nova labels are pseudo-labels; their class and spatial accuracy are unverified |
+| App teaching mode | Opt-in sampler stores the three camera frames, uploads over Wi-Fi after Stop if needed, and closes that explicit session for background work; signed build is installed on the physical iPhone | Camera-to-cloud session behaviour still needs real-device verification |
+| Session learning | Deployed session-indexed candidate aggregation, session-close dispatch, Nova receipts, data-coverage gates, asynchronous SageMaker AI training and a single-job lock | No training job has run |
+| YOLO | Bundled YOLO11n remains the app's live model; SageMaker job writes a separate pseudo-label candidate to private S3 only | Automated labels are proxy targets; candidate evaluation is not ground truth and nothing is promoted or installed automatically |
+| Budget | Deployed £8 monthly workflow reservation stop, a $12 AWS service budget with an automatic stop at 80%, and capped 15-minute single-instance jobs | This AWS account accepts USD budgets only; $12 was about £8.96 on 24 Oct 2026, and exchange rates/billing data can move |
 
 ## Infrastructure already deployed
 
@@ -19,10 +20,11 @@ The `abdul` profile was used from the Mac to deploy in **eu-west-2 (London)** fo
 
 - Terraform state bucket: `iseeyou-terraform-state-885625664603-eu-west-2`.
 - Private media bucket: `iseeyou-teacher-data-885625664603-eu-west-2`.
-- Media prefixes: `raw/images/`, `raw/clips/`, `raw/manifests/`; results: `candidates/`; nightly inventories: `reviews/`.
+- Media prefixes: `raw/images/`, `raw/frames/`, `raw/clips/`, `raw/manifests/`; results: `candidates/`; nightly inventories: `reviews/`; local-branch training outputs: `learning/`.
 - Encrypted sample queue and dead-letter queue, `iseeyou-teacher-worker` Lambda and a CloudWatch dead-letter alarm. The alarm has no notification subscription yet.
 - `iseeyou-teacher-ingestion` Lambda behind an HTTP API and `iseeyou-teacher-uploads` DynamoDB table for upload tickets and the daily quota.
 - `iseeyou-teacher-review` Lambda, `iseeyou-teacher-nightly` Step Functions state machine, and an EventBridge rule scheduled for **02:00 UTC daily**.
+- The session-end API, DynamoDB GSI, Step Functions/Lambda workflow, private SageMaker role, baseline checkpoint and budget stop are deployed in London. No training job has been submitted.
 - IAM roles scoped to each service's work. No AWS credentials are distributed to the phone.
 
 S3 raw media expires after seven days; candidates after thirty days; noncurrent versions after one day. These are asynchronous lifecycle policies, not immediate erasure. Versioned deletion requires removing all versions. Nightly inventory reports currently have no expiry rule.
@@ -125,14 +127,11 @@ No real user camera footage has been uploaded during these tests; the AWS media 
 
 ## On-demand learning implementation
 
-See [local learning workflow](LOCAL_LEARNING.md) for the new operator-invoked Mac commands, annotation schema, data coverage gates, baseline regression checks, physical acceptance report, signed device handoff and rollback. This does not change the nightly AWS inventory or automatically turn Nova proposals into ground truth. The initial review workspace contains one eligible real sample, still unapproved; no reviewed correction dataset or replacement model exists.
+The existing [local learning workflow](LOCAL_LEARNING.md) remains operator-invoked and human-reviewed. The deployed session workflow starts Nova after explicit session close, then SageMaker may start a private shadow YOLO job after grouped data-coverage gates pass. The job stores a candidate only; it cannot update the detector used by the app. The nightly inventory schedule remains unchanged.
+
+The backend was applied using `AWS_PROFILE=abdul`; a synthetic-only session exercised the deployed Nova workflow and ended at `awaiting_more_pseudo_labels`, with no SageMaker job. The fixture media, candidates, session rows and inference locks were removed afterward; £0.15 of conservative inference reservations remains counted in the monthly ledger. The app was subsequently signed with the Xcode Personal Team profile and installed on the physical iPhone as `com.iseeyou.research` (version 1.0, build 1); it launched successfully. YOLO11n remains the live detector. The YOLO11 baseline is marked by the annotated Git tag `baseline/live-yolo11-2026-10-24`.
 
 ## Recommended next development steps
 
-1. Review upload authentication, media lifecycle/deletion, source timestamps and queue behaviour. Live Nova access is now verified; recognition and annotation quality are not.
-2. Keep mock results and unvalidated live proposals excluded from training datasets. Recheck the Support case separately if a closure update is needed.
-3. Provision the device privately, build/install a normal local Release version, then test opt-in camera-to-cloud capture, errors, offline retries, app relaunch, interruption and receipt recovery. Measure battery, thermal, inference latency and frame drops on both camera sources.
-4. Harden the single-device pilot: per-user/device authentication and revocation, queue/receipt recovery under multiple outstanding uploads, clearer quota feedback, deletion controls, spend limits and alarm notification routing.
-5. Implement semantic and spatial annotation validation plus a versioned curated dataset and historical replay. The current lexical label-set comparison is not validated object matching.
-6. Run the new local learning workflow once complete reviewed data and historical replay exist. It has sufficient-data checks, reproducible CPU training, held-out object regression gates and physical acceptance requirements. A representative hazard/safety benchmark and conditional cloud training are still separate work; nightly inventory remains unchanged.
-7. Use signed local CoreML handoff and rollback only after candidate acceptance. OTA distribution and automatic rollout are not implemented. Do not replace the working detector with mock or unvalidated outputs.
+1. Verify explicit Stop closes a teacher session while lifecycle stops do not.
+2. Keep model promotion disabled. Evaluate candidate checkpoints against a separately reviewed dataset before changing the app's active model.

@@ -2,11 +2,14 @@ import importlib.util
 import io
 import json
 import os
+import sys
 import unittest
 from unittest.mock import Mock, patch
 from pathlib import Path
 
-spec = importlib.util.spec_from_file_location('teacher', Path(__file__).parents[2] / 'infra/teacher/lambda/teacher.py')
+lambda_root = Path(__file__).parents[2] / 'infra/teacher/lambda'
+sys.path.insert(0, str(lambda_root))
+spec = importlib.util.spec_from_file_location('teacher', lambda_root / 'teacher.py')
 teacher = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(teacher)
 
@@ -26,7 +29,7 @@ class TeacherTests(unittest.TestCase):
         with self.assertRaises(ValueError): teacher.validate_manifest(doc)
     def test_teacher_geometry_rejected(self):
         with self.assertRaises(ValueError):
-            teacher.parse_proposal('{"objects":[{"label":"door","box":[0,0,2,1]}]}')
+            teacher.parse_proposal('{"objects":[{"label":"door","box":[0,0,1001,1]}]}')
     @patch.dict(os.environ, {'BUCKET': 'test-bucket', 'MODEL_ID': 'test-model'})
     def test_completed_retry_does_not_invoke(self):
         s3, model = Mock(), Mock()
@@ -36,21 +39,23 @@ class TeacherTests(unittest.TestCase):
         teacher.process_record(self.record(), s3, model)
         model.converse.assert_not_called()
         s3.get_object.assert_not_called()
-    @patch.dict(os.environ, {'BUCKET': 'test-bucket', 'MODEL_ID': 'test-model'})
     def test_versioned_proposal_and_comparison(self):
         s3, model = Mock(), Mock()
         s3.list_objects_v2.return_value = {}
         s3.get_object.side_effect = [{'Body': io.BytesIO(json.dumps(self.manifest()).encode())},
                                      {'Body': io.BytesIO(b'\x89PNG\r\n\x1a\nimage')}]
-        model.converse.return_value = {'output': {'message': {'content': [{'text': '{"objects":[{"label":"door","box":null}]}'}]}}}
-        teacher.process_record(self.record(), s3, model)
+        model.converse.return_value = {'output': {'message': {'content': [{'text': '{"objects":[{"label":"door","box":[0,0,1000,1000]}]}'}]}}, 'usage': {'inputTokens': 10}}
+        with patch.dict(os.environ, {'BUCKET': 'test-bucket', 'MODEL_ID': 'test-model'}), patch.object(teacher, 'reserve_gbp', return_value=True):
+            teacher.process_record(self.record(), s3, model)
         self.assertEqual(s3.get_object.call_args_list[1].kwargs['VersionId'], 'image-v1')
         result = json.loads(s3.put_object.call_args.kwargs['Body'])
         self.assertFalse(result['training_eligible'])
-        self.assertEqual(result['status'], 'proposed_only')
+        self.assertEqual(result['status'], 'pseudo_labeled')
+        self.assertTrue(result['pseudo_label_eligible'])
         self.assertEqual(result['inference_attempts'], 1)
         model.converse.assert_called_once()
-        self.assertEqual(result['comparison']['teacher_only_labels'], ['door'])
+        self.assertEqual(result['frames'][0]['comparison']['teacher_only_labels'], ['door'])
+        self.assertEqual(result['frames'][0]['proposal']['objects'][0]['box'], [0, 0, 1, 1])
         self.assertEqual(s3.put_object.call_args.kwargs['IfNoneMatch'], '*')
     @patch.dict(os.environ, {'BUCKET': 'test-bucket', 'MODEL_ID': 'test-model'})
     def test_wrong_bucket_and_oversized_manifest_never_invoke(self):
@@ -74,8 +79,7 @@ class TeacherTests(unittest.TestCase):
         doc = json.loads(s3.put_object.call_args.kwargs['Body'])
         self.assertEqual(doc['status'], 'mock_complete')
         self.assertFalse(doc['training_eligible'])
-        self.assertEqual(doc['comparison']['detector_only_labels'], [])
-    @patch.dict(os.environ, {'BUCKET': 'test-bucket', 'MODEL_ID': 'test-model', 'TEACHER_MODE': 'live'})
+        self.assertEqual(doc['frames'][0]['proposal']['objects'], [])
     def test_malformed_live_response_gets_one_validated_correction(self):
         s3, model = Mock(), Mock()
         s3.list_objects_v2.return_value = {}
@@ -86,18 +90,18 @@ class TeacherTests(unittest.TestCase):
                     'stopReason': stop, 'usage': {'inputTokens': 10, 'outputTokens': 5, 'totalTokens': 15}}
         model.converse.side_effect = [response('{"objects": []}]'),
                                      response('{"objects": [], "summary": "No identified objects."}')]
-        teacher.process_record(self.record(), s3, model)
+        with patch.dict(os.environ, {'BUCKET': 'test-bucket', 'MODEL_ID': 'test-model', 'TEACHER_MODE': 'live'}), patch.object(teacher, 'reserve_gbp', return_value=True):
+            teacher.process_record(self.record(), s3, model)
         self.assertEqual(model.converse.call_count, 2)
         result = json.loads(s3.put_object.call_args.kwargs['Body'])
-        self.assertEqual(result['status'], 'proposed_only')
+        self.assertEqual(result['status'], 'pseudo_labeled')
         self.assertFalse(result['training_eligible'])
         self.assertEqual(result['inference_attempts'], 2)
         self.assertEqual(result['usage'], {'inputTokens': 20, 'outputTokens': 10, 'totalTokens': 30})
 
-    @patch.dict(os.environ, {'BUCKET': 'test-bucket', 'MODEL_ID': 'test-model', 'TEACHER_MODE': 'live'})
     def test_invalid_or_truncated_responses_never_write_candidates(self):
         for text, stop in [('invalid json', 'end_turn'), ('{"objects": []}', 'max_tokens'),
-                           ('{"objects": [{"label": "door", "box": [0, 0, 2, 1]}]}', 'end_turn')]:
+                           ('{"objects": [{"label": "door", "box": [0, 0, 1001, 1]}]}', 'end_turn')]:
             with self.subTest(text=text, stop=stop):
                 s3, model = Mock(), Mock()
                 s3.list_objects_v2.return_value = {}
@@ -105,8 +109,9 @@ class TeacherTests(unittest.TestCase):
                                              {'Body': io.BytesIO(b'\x89PNG\r\n\x1a\nimage')}]
                 model.converse.return_value = {'output': {'message': {'content': [{'text': text}]}},
                                                'stopReason': stop}
-                with self.assertRaises(ValueError):
-                    teacher.process_record(self.record(), s3, model)
+                with patch.dict(os.environ, {'BUCKET': 'test-bucket', 'MODEL_ID': 'test-model', 'TEACHER_MODE': 'live'}), patch.object(teacher, 'reserve_gbp', return_value=True):
+                    with self.assertRaises(ValueError):
+                        teacher.process_record(self.record(), s3, model)
                 self.assertEqual(model.converse.call_count, 2)
                 s3.put_object.assert_not_called()
 

@@ -1,6 +1,6 @@
 # Silent vision teacher pilot
 
-Private uploads → versioned S3 → encrypted SQS → Lambda → explicitly marked mock response or Bedrock Nova → candidate results. EventBridge and Step Functions produce a nightly candidate inventory. Training is currently skipped; no model is promoted.
+Private uploads → versioned S3 → encrypted SQS → Lambda → explicitly marked mock response or Bedrock Nova → candidate results. Session uploads wait for explicit session close before Nova analysis. The existing nightly Step Functions flow remains inventory-only. The session workflow prepares Nova pseudo-labels and can start a budget-gated SageMaker shadow YOLO job. It never promotes or installs the candidate model.
 
 See [the implementation status and remaining work](../../docs/AWS_TEACHER_STATUS.md) before running or deploying anything. That document records the deployed resources, verified live Nova access, AWS Support case, phone opt-in behaviour, test evidence and known gaps.
 
@@ -9,8 +9,10 @@ See [the implementation status and remaining work](../../docs/AWS_TEACHER_STATUS
 - `main.tf`: private media bucket, queue, teacher Lambda, model/mode settings and alarms.
 - `ingestion.tf`: upload API, ingestion Lambda, single-device token digest and daily ticket quota.
 - `nightly.tf`: nightly inventory Lambda and EventBridge/Step Functions wiring.
-- `lambda/teacher.py`: version-pinned first-image analysis; proposed-only results; explicit mock mode.
+- `learning.tf`: session learning workflow, SageMaker training role, £10 monthly service budget and automatic budget stop/reset.
+- `lambda/teacher.py`: version-pinned camera-frame analysis, spatial pseudo-label results, explicit mock mode.
 - `lambda/ingestion.py`: signed image/MP4 uploads, checksums, completion and processing receipts.
+- `lambda/learning.py` and `training/train.py`: session aggregation, data gates and private shadow checkpoint training.
 - `lambda/review.py`: candidate inventory and explicit skip-training result.
 - `../../ISeeYou/BackgroundTeacher.swift`: opt-in phone sampler, queue, upload client and status.
 
@@ -24,4 +26,4 @@ The worker permits one validated correction attempt for malformed or incomplete 
 
 The original image-only manual uploader remains in `scripts/aws/upload_teacher_sample.py` for controlled tests. It requires explicit consent and a local AWS profile. It bypasses the phone API's ticket quota because it uses administrator-authorised AWS access; it is not a production ingestion client.
 
-No deployment, training or model promotion is triggered by publishing this branch.
+The session-close learning resources and $12 monthly AWS budget action are deployed in London. A generated synthetic-only session verified Nova labeling and the coverage gate; it did not meet training coverage, so no SageMaker job was created. Training code and the baseline checkpoint are stored privately in S3. Applying the stack does not itself start SageMaker training.

@@ -14,6 +14,16 @@ resource "aws_dynamodb_table" "uploads" {
     name = "id"
     type = "S"
   }
+  attribute {
+    name = "session_id"
+    type = "S"
+  }
+  global_secondary_index {
+    name            = "session-index"
+    hash_key        = "session_id"
+    range_key       = "id"
+    projection_type = "ALL"
+  }
   ttl {
     attribute_name = "expires_at"
     enabled        = true
@@ -32,9 +42,11 @@ resource "aws_iam_role_policy" "api" {
   role = aws_iam_role.api.id
   policy = jsonencode({ Version = "2012-10-17", Statement = [
     { Effect = "Allow", Action = ["s3:GetObject", "s3:PutObject"], Resource = "${aws_s3_bucket.data.arn}/raw/*" },
-    { Effect = "Allow", Action = "s3:GetObject", Resource = "${aws_s3_bucket.data.arn}/candidates/*" },
+    { Effect = "Allow", Action = "s3:GetObject", Resource = ["${aws_s3_bucket.data.arn}/candidates/*", "${aws_s3_bucket.data.arn}/learning/releases/*"] },
     { Effect = "Allow", Action = "s3:ListBucket", Resource = aws_s3_bucket.data.arn },
     { Effect = "Allow", Action = ["dynamodb:PutItem", "dynamodb:GetItem", "dynamodb:UpdateItem"], Resource = aws_dynamodb_table.uploads.arn },
+    { Effect = "Allow", Action = ["states:StartExecution"], Resource = aws_sfn_state_machine.learning.arn },
+    { Effect = "Allow", Action = ["sagemaker:DescribeTrainingJob"], Resource = "*" },
     { Effect = "Allow", Action = ["logs:CreateLogStream", "logs:PutLogEvents"], Resource = "${aws_cloudwatch_log_group.api.arn}:*" }
   ] })
 }
@@ -47,7 +59,7 @@ resource "aws_lambda_function" "api" {
   source_code_hash = data.archive_file.worker.output_base64sha256
   timeout          = 20
   memory_size      = 128
-  environment { variables = { BUCKET = aws_s3_bucket.data.id, TABLE = aws_dynamodb_table.uploads.id, TOKEN_HASH = var.device_token_hash } }
+  environment { variables = { BUCKET = aws_s3_bucket.data.id, TABLE = aws_dynamodb_table.uploads.id, TOKEN_HASH = var.device_token_hash, WORKFLOW_ARN = aws_sfn_state_machine.learning.arn } }
   depends_on = [aws_iam_role_policy.api]
 }
 resource "aws_apigatewayv2_api" "uploads" {
@@ -61,7 +73,7 @@ resource "aws_apigatewayv2_integration" "uploads" {
   payload_format_version = "2.0"
 }
 resource "aws_apigatewayv2_route" "uploads" {
-  for_each  = toset(["POST /samples", "POST /samples/{sample}/complete", "GET /samples/{sample}"])
+  for_each  = toset(["POST /samples", "POST /samples/{sample}/complete", "GET /samples/{sample}", "POST /sessions/{session}/complete", "GET /sessions/{session}", "GET /models/latest", "POST /models/{version}/feedback"])
   api_id    = aws_apigatewayv2_api.uploads.id
   route_key = each.value
   target    = "integrations/${aws_apigatewayv2_integration.uploads.id}"

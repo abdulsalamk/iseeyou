@@ -1,5 +1,20 @@
 # Development workflow
 
+## Token-efficient development
+
+- Minimise token consumption while maintaining code quality.
+- Read only files relevant to the current task.
+- Do not repeatedly scan the entire repository.
+- Do not read generated files, build outputs, large datasets or lengthy logs unless necessary.
+- Use targeted searches and limit command output.
+- Make the smallest changes required.
+- Avoid unnecessary refactoring and repeated explanations.
+- Run focused tests first.
+- Stop after three unsuccessful debugging attempts and report the blocker.
+- Provide a concise summary of changes, tests and remaining issues.
+- Preserve progress through Git commits and a short project status file.
+- Do not start additional tasks without approval.
+
 The user has reverted to local development to avoid cloud deployment overhead.
 
 - Edit, build, sign and install using the user's Mac and Xcode. Use a physical iPhone, not a simulator.

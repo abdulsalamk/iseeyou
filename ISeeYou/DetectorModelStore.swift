@@ -136,6 +136,15 @@ final class DetectorModelStore {
         lock.lock(); defer { lock.unlock() }
         var saved = state(); saved.previous = nil; saved.current = nil; try save(saved)
     }
+    func stagedVersion() -> String? {
+        lock.lock(); defer { lock.unlock() }
+        let envelopeURL = documents.appendingPathComponent("ModelUpdate/release.json")
+        guard let data = try? Data(contentsOf: envelopeURL),
+              let envelope = try? JSONDecoder().decode(Envelope.self, from: data),
+              let payloadData = Data(base64Encoded: envelope.payload),
+              let payload = try? JSONDecoder().decode(Payload.self, from: payloadData), safeVersion(payload.version) else { return nil }
+        return payload.version
+    }
 }
 
 enum ModelUpdateError: LocalizedError {

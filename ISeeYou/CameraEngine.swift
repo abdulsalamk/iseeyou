@@ -21,14 +21,26 @@ final class CameraEngine: NSObject, ObservableObject, AVCaptureVideoDataOutputSa
         guard !running, !starting, !wantsRunning, !modelUpdateBusy else { return }
         modelUpdateBusy = true
         inferenceQueue.async { [self] in
+            let previousVersion = detectorVersion
             do {
                 let version: String
                 if useBundled { try modelStore.useBundled(); version = "yolo11n-bundled-coreml" }
                 else { version = try modelStore.activateStaged() }
                 request = nil
                 try loadModel()
+                if useBundled {
+                    if previousVersion != "yolo11n-bundled-coreml" {
+                        teacher.reportModelFeedback(version: previousVersion, action: "rollback", activeModel: version)
+                    }
+                } else {
+                    teacher.reportModelFeedback(version: version, action: "activated", activeModel: version)
+                }
                 DispatchQueue.main.async { [self] in detectorStatus = "Detector: " + version; modelUpdateBusy = false }
             } catch {
+                if !useBundled, let failedVersion = modelStore.stagedVersion() {
+                    teacher.reportModelFeedback(version: failedVersion, action: "activation_failed", activeModel: previousVersion,
+                                                errorCode: error.localizedDescription.lowercased().contains("signature") ? "signature" : "compatibility")
+                }
                 DispatchQueue.main.async { [self] in detectorStatus = error.localizedDescription; modelUpdateBusy = false }
             }
         }
@@ -393,7 +405,7 @@ final class CameraEngine: NSObject, ObservableObject, AVCaptureVideoDataOutputSa
         }
     }
 
-    func stop(reason: String = "Camera stopped") {
+    func stop(reason: String = "Camera stopped", endTeacherSession: Bool = false) {
         cameraLog("stop requested: " + reason)
         wantsRunning = false
         permissionPending = false
@@ -401,6 +413,7 @@ final class CameraEngine: NSObject, ObservableObject, AVCaptureVideoDataOutputSa
         status = reason
         generation = UUID()
         running = false
+        if endTeacherSession { teacher.endSession() }
         glasses.stop()
         glassesPreview = nil
         previewAspectRatio = 9.0 / 16.0

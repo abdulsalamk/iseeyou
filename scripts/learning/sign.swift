@@ -18,4 +18,15 @@ if args.count == 4 && args[1] == "init" {
     let envelope = ["payload": payload.base64EncodedString(), "signature": try key.signature(for: payload).base64EncodedString()]
     try JSONSerialization.data(withJSONObject: envelope, options: [.sortedKeys]).write(to: URL(fileURLWithPath: args[4]), options: .atomic)
     print("Signed release payload")
-} else { fail("Usage: swift sign.swift init PRIVATE_KEY PUBLIC_PIN | sign PRIVATE_KEY PAYLOAD_JSON RELEASE_JSON") }
+} else if args.count == 5 && args[1] == "verify" {
+    let publicText = try String(contentsOf: URL(fileURLWithPath: args[2]), encoding: .utf8)
+    guard let rawKey = Data(base64Encoded: publicText.trimmingCharacters(in: .whitespacesAndNewlines)) else { fail("Invalid public key") }
+    let key = try Curve25519.Signing.PublicKey(rawRepresentation: rawKey)
+    let envelopeData = try Data(contentsOf: URL(fileURLWithPath: args[3]))
+    let envelope = try JSONSerialization.jsonObject(with: envelopeData) as! [String: String]
+    guard let payload = Data(base64Encoded: envelope["payload"] ?? ""),
+          let signature = Data(base64Encoded: envelope["signature"] ?? ""),
+          key.isValidSignature(signature, for: payload),
+          payload == (try Data(contentsOf: URL(fileURLWithPath: args[4]))) else { fail("Release signature or payload mismatch") }
+    print("Release signature verified")
+} else { fail("Usage: swift sign.swift init PRIVATE_KEY PUBLIC_PIN | sign PRIVATE_KEY PAYLOAD_JSON RELEASE_JSON | verify PUBLIC_PIN RELEASE_JSON PAYLOAD_JSON") }

@@ -23,7 +23,7 @@ struct CameraScreen: View {
                     Text("Wear and open your glasses. Developer Mode is required. Once started, glasses camera and speech can continue with the phone locked. Unlock and tap Stop camera to end the session.").font(.caption)
                 }
                 Button(engine.starting ? "Cancel camera startup" : (engine.running ? "Stop camera" : "Start camera")) {
-                    if engine.running || engine.starting { engine.stop() } else { engine.start() }
+                    if engine.running || engine.starting { engine.stop(endTeacherSession: true) } else { engine.start() }
                 }.buttonStyle(.borderedProminent).accessibilityIdentifier("cameraToggle")
                 if engine.denied {
                     Button("Open Settings") {
@@ -64,11 +64,13 @@ struct CameraScreen: View {
                 TwoLineExplanation(text: engine.status).font(.callout).accessibilityIdentifier("cameraStatus")
                 DisclosureGroup("Detector updates") {
                     Text(engine.detectorStatus).font(.caption)
+                    Button("Check for signed model update") { engine.teacher.checkForModelUpdate() }
+                    Text(engine.teacher.modelUpdateStatus).font(.caption)
                     Button("Install reviewed model update") { engine.updateDetector() }
                         .disabled(engine.running || engine.starting || engine.modelUpdateBusy)
                     Button("Use bundled detector") { engine.updateDetector(useBundled: true) }
                         .disabled(engine.running || engine.starting || engine.modelUpdateBusy)
-                    Text("Stop the camera before changing models. Updates must pass evaluation and signature checks.").font(.caption)
+                    Text("Updates download over Wi-Fi into a staging area. Stop the camera to install; the signature, checksums and Core ML output are verified first. Later camera samples feed Nova comparisons. Use the bundled detector to roll back.").font(.caption)
                 }
                 Text("Received video frames: \(engine.receivedFrames)").font(.caption.monospacedDigit()).accessibilityIdentifier("cameraFrames")
                 ZStack {
