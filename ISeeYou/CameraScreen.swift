@@ -12,6 +12,15 @@ struct CameraScreen: View {
             VStack(alignment: .leading, spacing: 16) {
                 Text("I See You").font(.largeTitle.bold())
                 Text("OBJECT DETECTION • RESEARCH POC").font(.caption.bold()).foregroundStyle(.secondary)
+                VStack(alignment: .leading, spacing: 4) {
+                    Label("Background teacher: Not running", systemImage: "stop.circle.fill")
+                        .font(.callout.bold())
+                        .foregroundStyle(.red)
+                    Text("Phone sampling is not connected. No frames are being uploaded to the teacher.")
+                        .font(.caption)
+                }
+                .accessibilityElement(children: .combine)
+                .accessibilityIdentifier("backgroundTeacherStatus")
                 Picker("Camera source", selection: $engine.cameraSource) {
                     ForEach(CaptureSource.allCases, id: \.self) { Text($0.rawValue).tag($0) }
                 }
