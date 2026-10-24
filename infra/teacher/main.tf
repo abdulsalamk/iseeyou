@@ -11,6 +11,14 @@ provider "aws" {
   allowed_account_ids = ["885625664603"]
   default_tags { tags = { Project = "iseeyou", Purpose = "SilentTeacher" } }
 }
+variable "teacher_mode" {
+  type    = string
+  default = "mock"
+  validation {
+    condition     = contains(["mock", "live"], var.teacher_mode)
+    error_message = "Teacher mode must be mock or live."
+  }
+}
 variable "model_access_ready" {
   type        = bool
   default     = false
@@ -132,7 +140,8 @@ resource "aws_iam_role_policy" "worker" {
 }
 data "archive_file" "worker" {
   type        = "zip"
-  source_file = "${path.module}/lambda/teacher.py"
+  source_dir  = "${path.module}/lambda"
+  excludes    = ["__pycache__", "__pycache__/*"]
   output_path = "${path.module}/.terraform/teacher.zip"
 }
 resource "aws_lambda_function" "worker" {
@@ -145,11 +154,11 @@ resource "aws_lambda_function" "worker" {
   timeout                        = 120
   memory_size                    = 256
   reserved_concurrent_executions = 2
-  environment { variables = { BUCKET = aws_s3_bucket.data.id, MODEL_ID = var.teacher_model_id } }
+  environment { variables = { BUCKET = aws_s3_bucket.data.id, MODEL_ID = var.teacher_model_id, TEACHER_MODE = var.teacher_mode } }
   depends_on = [aws_iam_role_policy.worker]
 }
 resource "aws_lambda_event_source_mapping" "samples" {
-  enabled                 = var.model_access_ready
+  enabled                 = var.model_access_ready || var.teacher_mode == "mock"
   event_source_arn        = aws_sqs_queue.samples.arn
   function_name           = aws_lambda_function.worker.arn
   batch_size              = 1

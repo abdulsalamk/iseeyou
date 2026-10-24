@@ -12,6 +12,7 @@ enum CaptureSource: String, CaseIterable {
 
 // All session, model and inference operations are serialized off the main thread.
 final class CameraEngine: NSObject, ObservableObject, AVCaptureVideoDataOutputSampleBufferDelegate, @unchecked Sendable {
+    let teacher = BackgroundTeacher()
     let session = AVCaptureSession()
     @Published var cameraSource: CaptureSource = .phone {
         didSet {
@@ -34,7 +35,7 @@ final class CameraEngine: NSObject, ObservableObject, AVCaptureVideoDataOutputSa
     @Published private(set) var detections: [Detection] = []
     @Published private(set) var status = "Camera stopped"
     @Published private(set) var denied = false
-    @Published private(set) var running = false
+    @Published private(set) var running = false { didSet { teacher.cameraChanged(running) } }
     @Published private(set) var starting = false
     @Published private(set) var receivedFrames = 0
     @Published private(set) var inferenceMS = 0.0
@@ -507,6 +508,7 @@ final class CameraEngine: NSObject, ObservableObject, AVCaptureVideoDataOutputSa
             let elapsed = end - windowStart
             let rate = Double(frameCount) / max(elapsed, 0.001)
             if elapsed >= 1 { frameCount = 0; windowStart = end }
+            teacher.offer(buffer, detections: results, source: external ? "Meta glasses" : "iPhone camera")
             let heat: String
             switch ProcessInfo.processInfo.thermalState {
             case .nominal: heat = "Nominal"

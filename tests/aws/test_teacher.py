@@ -60,6 +60,18 @@ class TeacherTests(unittest.TestCase):
         with self.assertRaises(ValueError): teacher.process_record(self.record(), s3, model)
         model.converse.assert_not_called()
         s3.put_object.assert_not_called()
+    @patch.dict(os.environ, {'BUCKET': 'test-bucket', 'MODEL_ID': 'test-model', 'TEACHER_MODE': 'mock'})
+    def test_mock_never_invokes_bedrock_or_invents_discrepancies(self):
+        s3, model = Mock(), Mock()
+        s3.list_objects_v2.return_value = {}
+        s3.get_object.side_effect = [{'Body': io.BytesIO(json.dumps(self.manifest()).encode())},
+                                     {'Body': io.BytesIO(b'\x89PNG\r\n\x1a\nimage')}]
+        teacher.process_record(self.record(), s3, model)
+        model.converse.assert_not_called()
+        doc = json.loads(s3.put_object.call_args.kwargs['Body'])
+        self.assertEqual(doc['status'], 'mock_complete')
+        self.assertFalse(doc['training_eligible'])
+        self.assertEqual(doc['comparison']['detector_only_labels'], [])
     @patch.object(teacher, 'clients')
     @patch.object(teacher, 'process_record')
     def test_partial_failures(self, process, clients):
