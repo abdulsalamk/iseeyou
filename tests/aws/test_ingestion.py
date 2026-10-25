@@ -62,6 +62,44 @@ class IngestionTests(unittest.TestCase):
             {'session_id': session_id, 'attempt': 0})
         db.put_item.assert_called_once()
 
+    @patch.dict(os.environ, {'TOKEN_HASH': hashlib.sha256(b'test-token').hexdigest(), 'TABLE': 'table', 'BUCKET': 'bucket',
+                             'WORKFLOW_ARN': 'arn:aws:states:eu-west-2:885625664603:stateMachine:test'})
+    @patch.object(ingestion, 'start_workflow')
+    @patch.object(ingestion, 'clients')
+    def test_local_session_close_queues_without_starting_aws(self, clients, start_workflow):
+        _, db = Mock(), Mock(); clients.return_value = _, db
+        session_id = '00000000-0000-0000-0000-000000000011'
+        db.get_item.return_value = {'Item': {'doc': {'S': json.dumps({'session_id': session_id})}}}
+        event = {'headers': {'authorization': 'Bearer test-token'}, 'rawPath': f'/sessions/{session_id}/complete',
+                 'requestContext': {'http': {'method': 'POST'}},
+                 'body': json.dumps({'sample_count': 2, 'learning_mode': 'local_mac'})}
+        response = ingestion.handler(event, None)
+        self.assertEqual(response['statusCode'], 202)
+        self.assertIn('queued_for_local_mac', response['body'])
+        start_workflow.assert_not_called()
+
+    @patch.dict(os.environ, {'TOKEN_HASH': hashlib.sha256(b'test-token').hexdigest(), 'TABLE': 'table', 'BUCKET': 'bucket'})
+    @patch.object(ingestion, 'clients')
+    def test_local_sample_ticket_uses_separate_non_worker_prefix(self, clients):
+        s3, db = Mock(), Mock(); clients.return_value = s3, db
+        s3.generate_presigned_url.return_value = 'https://bucket.s3.eu-west-2.amazonaws.com/upload'
+        db.get_item.return_value = {}
+        sample_id = '00000000-0000-0000-0000-000000000012'
+        checksum = 'A' * 43 + '='
+        frames = [{'frame_id': f'{sample_id}-{i}', 'captured_at': '2026-10-24T00:00:00Z',
+                   'offset_seconds': i, 'image_size': 100 + i, 'image_sha256': checksum,
+                   'predictions': []} for i in range(3)]
+        body = {'sample_id': sample_id, 'session_id': '00000000-0000-0000-0000-000000000001',
+            'learning_mode': 'local_mac', 'consent': True, 'frame_id': frames[0]['frame_id'],
+            'captured_at': frames[0]['captured_at'], 'model_version': 'test', 'source': 'iPhone camera',
+            'duration_seconds': 3, 'image_size': 100, 'clip_size': 300, 'image_sha256': checksum,
+            'clip_sha256': checksum, 'predictions': [], 'clip_frames': frames}
+        event = {'headers': {'authorization': 'Bearer test-token'}, 'rawPath': '/samples',
+                 'requestContext': {'http': {'method': 'POST'}}, 'body': json.dumps(body)}
+        self.assertEqual(ingestion.handler(event, None)['statusCode'], 201)
+        keys = [call.kwargs['Params']['Key'] for call in s3.generate_presigned_url.call_args_list]
+        self.assertTrue(all(key.startswith('local/raw/') for key in keys))
+
     @patch.dict(os.environ, {'TOKEN_HASH': hashlib.sha256(b'test-token').hexdigest(), 'TABLE': 'table', 'BUCKET': 'bucket'})
     @patch.object(ingestion, 'clients')
     def test_session_close_rejects_sample_count_above_bound(self, clients):

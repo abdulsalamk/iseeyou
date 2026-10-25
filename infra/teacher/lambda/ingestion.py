@@ -46,7 +46,11 @@ def handler(event, context):
             doc = json.loads(body)
             from teacher import validate_manifest
             sample = str(uuid.UUID(doc['sample_id']))
-            image_key = f'raw/images/{sample}.jpg'
+            learning_mode = doc.get('learning_mode', 'aws')
+            if learning_mode not in ('aws', 'local_mac'):
+                raise ValueError('invalid_learning_mode')
+            prefix = 'local/' if learning_mode == 'local_mac' else ''
+            image_key = f'{prefix}raw/images/{sample}.jpg'
             doc.update(image_key=image_key, schema_version=1)
             session_id = doc.get('session_id')
             if session_id is not None and str(uuid.UUID(session_id)) != session_id:
@@ -58,7 +62,7 @@ def handler(event, context):
             for index, frame in enumerate(clip_frames):
                 if not isinstance(frame, dict):
                     raise ValueError('invalid_frame')
-                frame.update(image_key=image_key if index == 0 else f'raw/frames/{sample}-{index}.jpg')
+                frame.update(image_key=image_key if index == 0 else f'{prefix}raw/frames/{sample}-{index}.jpg')
                 frame_images.append(frame)
             if frame_images and (frame_images[0].get('frame_id') != doc.get('frame_id')
                     or frame_images[0].get('image_size') != doc.get('image_size')
@@ -90,7 +94,7 @@ def handler(event, context):
                                ConditionExpression='attribute_not_exists(used_count) OR used_count < :maximum',
                                ExpressionAttributeValues={':ttl': {'N': str(int(time.time()) + 172800)},
                                  ':one': {'N': '1'}, ':maximum': {'N': '50'}})
-                doc['clip_key'] = f'raw/clips/{sample}.mp4'
+                doc['clip_key'] = f'{prefix}raw/clips/{sample}.mp4'
                 doc['expires_at'] = int(time.time()) + 86400
                 item = {'id': {'S': 'sample#' + sample}, 'doc': {'S': json.dumps(doc)},
                         'expires_at': {'N': str(doc['expires_at'])}}
@@ -128,8 +132,12 @@ def handler(event, context):
                 sample_count = request.get('sample_count', 0)
                 if type(sample_count) is not int or not 0 <= sample_count <= 2000:
                     raise ValueError('invalid_session_sample_count')
+                learning_mode = request.get('learning_mode', 'aws')
+                if learning_mode not in ('aws', 'local_mac'):
+                    raise ValueError('invalid_learning_mode')
                 record = {'id': {'S': key}, 'session_id': {'S': session_id},
                           'expected_samples': {'N': str(sample_count)}, 'status': {'S': 'closed'},
+                          'learning_mode': {'S': learning_mode},
                           'expires_at': {'N': str(int(time.time()) + 30 * 86400)}}
                 try:
                     db.put_item(TableName=table, Item=record, ConditionExpression='attribute_not_exists(id)')
@@ -141,12 +149,21 @@ def handler(event, context):
                         return reply(409, {'error': 'session_content_changed'})
                 current = db.get_item(TableName=table, Key={'id': {'S': key}}, ConsistentRead=True).get('Item', {})
                 current_status = current.get('status', {}).get('S', 'closed')
-                if current_status not in ('closed', 'processing_queued'):
-                    return reply(202, {'session_id': session_id, 'status': current_status})
+                current_mode = current.get('learning_mode', {}).get('S', learning_mode)
+                if current_mode != learning_mode:
+                    return reply(409, {'error': 'session_learning_mode_changed'})
                 if sample_count == 0:
                     db.update_item(TableName=table, Key={'id': {'S': key}}, UpdateExpression='SET #s = :done',
                                    ExpressionAttributeNames={'#s': 'status'}, ExpressionAttributeValues={':done': {'S': 'no_samples'}})
                     return reply(200, {'session_id': session_id, 'status': 'no_samples'})
+                if learning_mode == 'local_mac':
+                    if current_status == 'closed':
+                        db.update_item(TableName=table, Key={'id': {'S': key}}, UpdateExpression='SET #s = :queued',
+                            ConditionExpression='#s = :closed', ExpressionAttributeNames={'#s': 'status'},
+                            ExpressionAttributeValues={':queued': {'S': 'queued_for_local_mac'}, ':closed': {'S': 'closed'}})
+                    return reply(202, {'session_id': session_id, 'status': 'queued_for_local_mac'})
+                if current_status not in ('closed', 'processing_queued'):
+                    return reply(202, {'session_id': session_id, 'status': current_status})
                 workflow = os.environ.get('WORKFLOW_ARN')
                 if not workflow:
                     raise RuntimeError('Session workflow is not configured')
@@ -177,7 +194,8 @@ def handler(event, context):
                     status = {'InProgress': 'training_running', 'Completed': 'training_complete',
                               'Failed': 'training_failed', 'Stopping': 'training_stopping',
                               'Stopped': 'training_stopped'}.get(sm_status, status)
-                return reply(200, {'session_id': session_id, 'status': status, 'training_job': job,
+                return reply(200, {'session_id': session_id, 'status': status,
+                                   'learning_mode': item.get('learning_mode', {}).get('S', 'aws'), 'training_job': job,
                                    'model_uri': item.get('model_uri', {}).get('S'),
                                    'evaluation_status': item.get('evaluation_status', {}).get('S')})
             return reply(405, {'error': 'method_not_allowed'})
@@ -248,7 +266,8 @@ def handler(event, context):
         doc = json.loads(item['doc']['S'])
         if int(doc['expires_at']) < time.time():
             return reply(410, {'error': 'sample_expired'})
-        manifest_key = f'raw/manifests/{sample}.json'
+        prefix = 'local/' if doc.get('learning_mode', 'aws') == 'local_mac' else ''
+        manifest_key = f'{prefix}raw/manifests/{sample}.json'
         if method == 'POST' and match[2]:
             for media in ('image', 'clip'):
                 head = s3.head_object(Bucket=bucket, Key=doc[media + '_key'], ChecksumMode='ENABLED')

@@ -1,5 +1,18 @@
 # On-demand local detector learning
 
+## Fetching sessions routed to Local Mac
+
+The app's **Learning path for new sessions** setting is persisted on the phone. The `iseeyou://learning-mode/local_mac` link selects **Local Mac + ChatGPT**; `iseeyou://learning-mode/aws` selects **AWS**. You can open a link on the phone, or ask the assistant to provide the chosen link. A mode change applies to sessions started after the change. Existing sessions keep their recorded route.
+
+Local Mac samples upload to `local/raw/` and `local/raw/manifests/`, separate from the `raw/manifests/` SQS notification consumed by the Nova worker. When the Mac is available, fetch the retained samples into a new private directory:
+
+```sh
+mkdir -m 700 -p "$HOME/.local/share/iseeyou-learning"
+python3 scripts/learning/fetch_local_queue.py --output "$HOME/.local/share/iseeyou-learning/local-queue-$(date +%Y%m%d-%H%M%S)"
+```
+
+This command uses the local `abdul` AWS profile and does not delete the S3 objects; the queue can be fetched again. The app's routing switch and fetch command do **not** yet implement Sign in with ChatGPT, automatic frame labeling, consent to ChatGPT plan usage, or detection of the ChatGPT 10% weekly app limit. Until that integration exists, do not treat fetched samples as labeled or submit them to an API-key-based workflow. ChatGPT plan usage limits are managed in ChatGPT Settings > Usage. Human-reviewed labels, the existing local training/evaluation gates, and candidate-only delivery remain required.
+
 This workflow runs from the Mac immediately when requested. It does not wait for the nightly inventory, create cloud GPU resources, restore cloud iPhone builds, or automatically promote a model. Nova proposes annotations; a reviewer supplies complete spatial labels before training. Model delivery uses the connected physical iPhone and the existing bundle identifier. It is signed local delivery, not an OTA model service.
 
 ## Review and curate

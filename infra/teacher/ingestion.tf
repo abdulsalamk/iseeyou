@@ -41,7 +41,7 @@ resource "aws_iam_role" "api" {
 resource "aws_iam_role_policy" "api" {
   role = aws_iam_role.api.id
   policy = jsonencode({ Version = "2012-10-17", Statement = [
-    { Effect = "Allow", Action = ["s3:GetObject", "s3:PutObject"], Resource = "${aws_s3_bucket.data.arn}/raw/*" },
+    { Effect = "Allow", Action = ["s3:GetObject", "s3:PutObject"], Resource = ["${aws_s3_bucket.data.arn}/raw/*", "${aws_s3_bucket.data.arn}/local/raw/*"] },
     { Effect = "Allow", Action = "s3:GetObject", Resource = ["${aws_s3_bucket.data.arn}/candidates/*", "${aws_s3_bucket.data.arn}/learning/releases/*"] },
     { Effect = "Allow", Action = "s3:ListBucket", Resource = aws_s3_bucket.data.arn },
     { Effect = "Allow", Action = ["dynamodb:PutItem", "dynamodb:GetItem", "dynamodb:UpdateItem"], Resource = aws_dynamodb_table.uploads.arn },

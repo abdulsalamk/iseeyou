@@ -151,7 +151,15 @@ struct CameraScreen: View {
         .onReceive(calibration.$profile) { if engine.cameraSource == .phone { engine.setCalibration($0) } }
         .onReceive(glassesCalibration.$profile) { if engine.cameraSource == .glasses { engine.setCalibration($0) } }
         .onChange(of: engine.cameraSource) { _, _ in engine.setCalibration(activeCalibration.profile) }
-        .onOpenURL { engine.handleGlassesCallback($0) }
+        .onOpenURL { url in
+            if url.scheme == "iseeyou", url.host == "learning-mode",
+               let value = url.pathComponents.dropFirst().first,
+               let mode = BackgroundTeacher.LearningMode(rawValue: value) {
+                engine.teacher.learningMode = mode
+            } else {
+                engine.handleGlassesCallback(url)
+            }
+        }
         .onChange(of: scenePhase) { _, phase in
             #if DEBUG
             print("[ISeeYou.Camera] scenePhase=\(phase)")
@@ -214,12 +222,24 @@ private struct BackgroundTeacherPanel: View {
                 .accessibilityIdentifier("backgroundTeacherStatus")
             Text(teacher.detail).font(.caption)
             Text(teacher.lastReceipt).font(.caption)
+            Picker("Learning path for new sessions", selection: $teacher.learningMode) {
+                ForEach(BackgroundTeacher.LearningMode.allCases) { mode in Text(mode.title).tag(mode) }
+            }
+            .accessibilityIdentifier("learningModePicker")
+            Text(teacher.learningMode == .localMac
+                 ? "New sessions upload to a separate private S3 queue for Mac-side review and training. Existing sessions keep their selected route."
+                 : "New sessions use the existing Nova and SageMaker workflow, subject to its budget and training quota.")
+                .font(.caption)
             Toggle("Share camera samples with the teacher", isOn: $teacher.enabled)
                 .accessibilityHint("Opt in to private camera sample uploads over Wi-Fi while the camera is running.")
                 .accessibilityIdentifier("teacherSharingToggle")
             DisclosureGroup("What gets shared") {
                 Text("When enabled with the camera running, this pilot records three low-rate frames into a silent three-second clip, about once a minute. It uploads the clip, its first image and matching YOLO predictions over Wi-Fi. It never records microphone audio or other apps.")
                 Text("Up to four clips wait privately on this phone for up to 24 hours. Uploads retry with a bounded backoff. The server accepts up to 50 new samples per UTC day. Raw media expires after seven days; proposed results after thirty days. Battery overhead is not yet measured. Mock results are not AI analysis or training data.")
+                if teacher.learningMode == .localMac {
+                    Text("Local Mac + ChatGPT is a routing choice. The Mac queue does not make ChatGPT requests yet; review and training remain an operator-run local workflow until ChatGPT sign-in and usage-limit handling are integrated.")
+                    Link("Check ChatGPT plan usage", destination: URL(string: "https://chatgpt.com/#settings/Usage")!)
+                }
             }.font(.caption)
         }
         .padding(10).background(.secondary.opacity(0.08)).clipShape(RoundedRectangle(cornerRadius: 10))

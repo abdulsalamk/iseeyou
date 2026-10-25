@@ -8,6 +8,15 @@ import UIKit
 
 /// An opt-in shadow sampler. Encoding and network work never run on the inference queue.
 final class BackgroundTeacher: ObservableObject, @unchecked Sendable {
+    enum LearningMode: String, CaseIterable, Identifiable {
+        case localMac = "local_mac"
+        case aws = "aws"
+        var id: String { rawValue }
+        var title: String { self == .localMac ? "Local Mac + ChatGPT" : "AWS" }
+    }
+    @Published var learningMode: LearningMode {
+        didSet { UserDefaults.standard.set(learningMode.rawValue, forKey: "learningMode") }
+    }
     @Published var enabled = false { didSet { updateEnabled() } }
     @Published private(set) var status = "Not running — uploads off"
     @Published private(set) var detail = "No camera samples are being uploaded."
@@ -19,6 +28,7 @@ final class BackgroundTeacher: ObservableObject, @unchecked Sendable {
     private var optedIn = false, cameraActive = false, busy = false
     private var checkingModel = false // worker queue only
     private var sessionID: String?
+    private var sessionMode: LearningMode = .aws
     private var nextFrame = 0.0, nextClip = 0.0
     private var frames: [TeacherFrame] = [] // worker queue only; at most three small images
     private let context = CIContext(options: [.cacheIntermediates: false])
@@ -29,6 +39,7 @@ final class BackgroundTeacher: ObservableObject, @unchecked Sendable {
     private let session: URLSession
 
     init() {
+        learningMode = LearningMode(rawValue: UserDefaults.standard.string(forKey: "learningMode") ?? "aws") ?? .aws
         let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
         directory = base.appendingPathComponent("TeacherQueue", isDirectory: true)
         try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
@@ -56,7 +67,7 @@ final class BackgroundTeacher: ObservableObject, @unchecked Sendable {
     func cameraChanged(_ active: Bool) {
         gate.withLock {
             cameraActive = active
-            if active, optedIn, sessionID == nil { sessionID = UUID().uuidString.lowercased() }
+            if active, optedIn, sessionID == nil { sessionID = UUID().uuidString.lowercased(); sessionMode = learningMode }
         }
         if !active {
             worker.async { [weak self] in self?.frames.removeAll() }
@@ -190,12 +201,12 @@ final class BackgroundTeacher: ObservableObject, @unchecked Sendable {
     private func updateEnabled() {
         gate.withLock {
             optedIn = enabled; nextFrame = 0; nextClip = 0
-            if enabled, cameraActive, sessionID == nil { sessionID = UUID().uuidString.lowercased() }
+            if enabled, cameraActive, sessionID == nil { sessionID = UUID().uuidString.lowercased(); sessionMode = learningMode }
         }
         worker.async { [weak self] in self?.frames.removeAll() }
         if !enabled { publish("Not running — uploads off", "No new samples will be captured or uploaded. An in-flight request may finish.", .off) }
         else if connection == nil { publish("Not connected", "The private teacher connection has not been configured on this phone.", .error) }
-        else { publish("Waiting for camera/sample", "Three low-rate frames form a short clip. Mock test responses are explicitly labelled.", .queued) }
+        else { publish("Waiting for camera/sample", "Three low-rate frames form a short clip. Route: \(learningMode.title).", .queued) }
     }
     /// Called only by the explicit Stop camera action. Lifecycle stops leave the session open.
     func endSession() {
@@ -209,7 +220,7 @@ final class BackgroundTeacher: ObservableObject, @unchecked Sendable {
             guard let self else { return }
             let file = self.sessionsDirectory.appendingPathComponent(endedID + ".json")
             var record = (try? JSONDecoder().decode(TeacherSessionRecord.self, from: Data(contentsOf: file)))
-                ?? TeacherSessionRecord(session_id: endedID, sample_ids: [], ended: false, completion_sent: false)
+                ?? TeacherSessionRecord(session_id: endedID, sample_ids: [], ended: false, completion_sent: false, mode: self.gate.withLock { self.sessionMode.rawValue })
             record.ended = true
             try? JSONEncoder().encode(record).write(to: file, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
             self.drainPending()
@@ -249,7 +260,7 @@ final class BackgroundTeacher: ObservableObject, @unchecked Sendable {
                 self.publish("Sampling a short clip", "\(self.frames.count) of 3 low-rate frames captured.", .queued)
                 guard self.frames.count == 3 else { return }
                 defer { self.frames.removeAll(); self.gate.withLock { self.nextClip = CACurrentMediaTime() + 60 } }
-                try self.makePendingClip(source: source, modelVersion: modelVersion, sessionID: acceptedSession)
+                try self.makePendingClip(source: source, modelVersion: modelVersion, sessionID: acceptedSession, mode: self.gate.withLock { self.sessionMode })
                 self.drainPending()
             } catch { self.publish("Sample queued or unavailable", "Teacher work paused; local camera and speech continue.", .error) }
         }
@@ -265,7 +276,7 @@ final class BackgroundTeacher: ObservableObject, @unchecked Sendable {
         let files = (try? FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)) ?? []
         return files.filter { (try? $0.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true }.sorted { $0.lastPathComponent < $1.lastPathComponent }
     }
-    private func makePendingClip(source: String, modelVersion: String, sessionID: String) throws {
+    private func makePendingClip(source: String, modelVersion: String, sessionID: String, mode: LearningMode) throws {
         guard pending().count < 4 else { publish("Queue full — sampling paused", "Four clips are waiting. No more samples will be stored until space is available.", .queued); return }
         let id = UUID().uuidString.lowercased(), folder = directory.appendingPathComponent(UUID().uuidString, isDirectory: true)
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
@@ -286,7 +297,7 @@ final class BackgroundTeacher: ObservableObject, @unchecked Sendable {
                     image_size: frame.jpeg.count, image_sha256: Data(SHA256.hash(data: frame.jpeg)).base64EncodedString(),
                     predictions: frame.predictions)
             }
-            let manifest = TeacherManifest(sample_id: id, session_id: sessionID, frame_id: id + "-0", captured_at: ISO8601DateFormatter().string(from: first.capturedAt),
+            let manifest = TeacherManifest(learning_mode: mode.rawValue, sample_id: id, session_id: sessionID, frame_id: id + "-0", captured_at: ISO8601DateFormatter().string(from: first.capturedAt),
                 model_version: modelVersion, predictions: first.predictions, source: source,
                 duration_seconds: frames.last!.monotonic - first.monotonic + 1, image_size: first.jpeg.count, clip_size: clip.count,
                 image_sha256: Data(SHA256.hash(data: first.jpeg)).base64EncodedString(),
@@ -295,7 +306,7 @@ final class BackgroundTeacher: ObservableObject, @unchecked Sendable {
             try JSONEncoder().encode(manifest).write(to: folder.appendingPathComponent("manifest.json"), options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
             let sessionFile = sessionsDirectory.appendingPathComponent(sessionID + ".json")
             var record = (try? JSONDecoder().decode(TeacherSessionRecord.self, from: Data(contentsOf: sessionFile)))
-                ?? TeacherSessionRecord(session_id: sessionID, sample_ids: [], ended: false, completion_sent: false)
+                ?? TeacherSessionRecord(session_id: sessionID, sample_ids: [], ended: false, completion_sent: false, mode: mode.rawValue)
             if !record.sample_ids.contains(id) { record.sample_ids.append(id) }
             try JSONEncoder().encode(record).write(to: sessionFile, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
         } catch { try? FileManager.default.removeItem(at: folder); throw error }
@@ -382,7 +393,7 @@ final class BackgroundTeacher: ObservableObject, @unchecked Sendable {
                 let next = TeacherRetry(attempts: retry.attempts + 1, after: Date().addingTimeInterval(min(3600, 30 * pow(2, Double(min(retry.attempts, 7))))))
                 try JSONEncoder().encode(next).write(to: retryURL, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
                 publish("Uploading queued clip", "Wi-Fi only. Local detection and speech do not wait for uploads.", .queued)
-                let ticketData = try api(connection, path: "/samples", method: "POST", body: data)
+                let ticketData = try api(connection, path: "/samples", method: "POST", body: try JSONEncoder().encode(doc))
                 let ticket = try JSONDecoder().decode(TeacherTicket.self, from: ticketData)
                 var uploads: [(String, TeacherTicket.Upload)] = [("frame.jpg", ticket.image), ("clip.mp4", ticket.clip)]
                 uploads += ticket.frames.enumerated().map { ("frame-\($0.offset + 1).jpg", $0.element) }
@@ -398,9 +409,9 @@ final class BackgroundTeacher: ObservableObject, @unchecked Sendable {
                 _ = try api(connection, path: "/samples/\(doc.sample_id)/complete", method: "POST", body: Data("{}".utf8))
                 // Completion verifies both durable object versions and checksums before local deletion.
                 try FileManager.default.removeItem(at: folder)
-                let receipt = TeacherPendingReceipt(sample: doc.sample_id, created: Date())
+                let receipt = TeacherPendingReceipt(sample: doc.sample_id, created: Date(), mode: doc.learning_mode ?? LearningMode.aws.rawValue)
                 try JSONEncoder().encode(receipt).write(to: directory.appendingPathComponent("receipt.json"), options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
-                publish("Uploaded — processing queued", "The server confirmed both files. Waiting for a processing receipt.", .queued)
+                publish("Uploaded — processing queued", "The server confirmed both files. \(doc.learning_mode == LearningMode.localMac.rawValue ? "Waiting for the Mac queue." : "Waiting for AWS processing.")", .queued)
             } catch {
                 publish("Queued — upload will retry", "A network or server error occurred. Files remain private on this phone for up to 24 hours.", .error)
                 break
@@ -409,6 +420,10 @@ final class BackgroundTeacher: ObservableObject, @unchecked Sendable {
         completeEndedSessions()
         guard sharingEnabled, let data = try? Data(contentsOf: directory.appendingPathComponent("receipt.json")),
               let receipt = try? JSONDecoder().decode(TeacherPendingReceipt.self, from: data) else { return }
+        if receipt.mode == LearningMode.localMac.rawValue {
+            publish("Waiting for local Mac", "The sample is retained in the separate Local Mac queue.", .queued)
+            return
+        }
         do {
             let result = try JSONDecoder().decode(TeacherReceipt.self, from: api(connection, path: "/samples/\(receipt.sample)"))
             if result.status == "mock_complete" || result.status == "proposed_only" || result.status == "pseudo_labeled" || result.status == "budget_limited" {
@@ -443,11 +458,12 @@ final class BackgroundTeacher: ObservableObject, @unchecked Sendable {
             }
             guard !hasPending else { continue }
             do {
-                let body = try JSONSerialization.data(withJSONObject: ["sample_count": record.sample_ids.count])
-                _ = try api(connection, path: "/sessions/\(record.session_id)/complete", method: "POST", body: body)
+                let completion = try JSONSerialization.data(withJSONObject: ["sample_count": record.sample_ids.count, "learning_mode": record.mode])
+                _ = try api(connection, path: "/sessions/\(record.session_id)/complete", method: "POST", body: completion)
                 record.completion_sent = true
                 try JSONEncoder().encode(record).write(to: file, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
-                publish("Session sent for background teaching", "Nova processing and YOLO training run asynchronously within the monthly budget.", .queued)
+                publish(record.mode == LearningMode.localMac.rawValue ? "Session queued for local Mac" : "Session sent for AWS teaching",
+                        record.mode == LearningMode.localMac.rawValue ? "Samples stay in the private Local Mac queue until processed locally." : "Nova processing and YOLO training run asynchronously within the monthly budget.", .queued)
             } catch {
                 publish("Session queued for processing", "The session close signal will retry when Wi-Fi is available.", .queued)
             }
@@ -517,6 +533,7 @@ private struct TeacherFrameMetadata: Codable {
 }
 private struct TeacherManifest: Codable {
     let schema_version = 1, consent = true
+    let learning_mode: String?
     let sample_id: String, session_id: String, frame_id: String, captured_at: String, model_version: String
     let predictions: [TeacherPrediction]; let source: String; let duration_seconds: Double
     let image_size: Int, clip_size: Int; let image_sha256: String, clip_sha256: String
@@ -527,7 +544,26 @@ private struct TeacherTicket: Decodable {
     let image: Upload, clip: Upload
     let frames: [Upload]
 }
-private struct TeacherSessionRecord: Codable { let session_id: String; var sample_ids: [String]; var ended: Bool; var completion_sent: Bool }
+private struct TeacherSessionRecord: Codable {
+    let session_id: String
+    var sample_ids: [String]
+    var ended: Bool
+    var completion_sent: Bool
+    var mode: String
+    private enum CodingKeys: String, CodingKey { case session_id, sample_ids, ended, completion_sent, mode }
+    init(session_id: String, sample_ids: [String], ended: Bool, completion_sent: Bool, mode: String = "aws") {
+        self.session_id = session_id; self.sample_ids = sample_ids; self.ended = ended
+        self.completion_sent = completion_sent; self.mode = mode
+    }
+    init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        session_id = try values.decode(String.self, forKey: .session_id)
+        sample_ids = try values.decode([String].self, forKey: .sample_ids)
+        ended = try values.decode(Bool.self, forKey: .ended)
+        completion_sent = try values.decode(Bool.self, forKey: .completion_sent)
+        mode = try values.decodeIfPresent(String.self, forKey: .mode) ?? "aws"
+    }
+}
 private struct TeacherSessionReceipt: Decodable { let status: String }
 private struct TeacherModelUpdate: Decodable {
     let status: String
@@ -550,7 +586,7 @@ private struct TeacherFeedback: Decodable {
 }
 private struct TeacherFeedbackFrame: Decodable { let frame_id: String; let summary: String }
 private struct TeacherRetry: Codable { let attempts: Int; let after: Date }
-private struct TeacherPendingReceipt: Codable { let sample: String; let created: Date }
+private struct TeacherPendingReceipt: Codable { let sample: String; let created: Date; let mode: String? }
 private final class TeacherNetworkResult: @unchecked Sendable { var data: Data?; var code: Int?; var error: Error? }
 private final class TeacherDownloadResult: @unchecked Sendable { var code: Int?; var error: Error? }
 private enum TeacherFailure: Error { case message(String) }
