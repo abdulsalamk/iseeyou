@@ -1,4 +1,4 @@
-# YOLO26n installation preparation — 25 October 2026
+# YOLO26n installation and verification — 25 October 2026
 
 ## Completed on the Mac
 
@@ -10,19 +10,14 @@
 - Local signed iPhone Release build succeeded, includes `yolo26n.mlmodelc`, and passed code-signature verification. Bundle identifier remains `com.iseeyou.research`.
 - `UnitChecks` build-for-testing succeeded for physical iOS devices. The bundled-model test now checks loading YOLO26 and running a generated image, replacing the pre-export missing-model expectation.
 
-## Not yet completed
+## Completed on the physical iPhone
 
-- Physical-device test execution and normal app installation: the phone is away from the Mac and unavailable over paired-device connectivity.
-- Calibration before/after comparison: the pre-install read could not reach the phone. Obtain a fresh snapshot before installing once it reconnects. No calibration was changed by this preparation.
-- Live phone/glasses camera, speech, recognition, latency, thermal or battery acceptance. No improved accuracy or navigation capability is claimed.
+- The signed `com.iseeyou.research` app containing `yolo26n.mlmodelc` was installed and launched on the iPhone 15 Pro.
+- After installation, the full `UnitChecks` suite ran on that phone (iOS 27.0.1): 52 tests, 51 passed, 0 failed, 1 skipped. `testStagedCandidateBenchmark` was skipped because no candidate package was staged. The bundled YOLO26 model load/inference test passed on generated input.
 
-The last confirmed installed detector remains YOLO11. The source baseline is retained on `main` and at `baseline/live-yolo11-2026-10-24`. Do not describe the prepared YOLO26 build as installed until device tools confirm installation.
+## Still to verify
 
-## Resume when the phone is reachable
+- Manual live camera and voice behaviour, recognition on the same real scenes, latency, thermal and battery behaviour. The unit suite does not establish these results. No improved accuracy or navigation capability is claimed.
+- A fresh calibration comparison has not been made. The update was installed over the existing app with the same bundle identifier; calibration was not intentionally changed.
 
-1. Check fresh device connectivity/unlocked state (paired same-network Wi-Fi or USB).
-2. Preserve both available phone/glasses calibration files and run the focused `DetectorModelStoreTests` on the physical iPhone, not a simulator.
-3. Install the already-prepared normal Release app, verify installed identity and unchanged calibration, then launch it.
-4. With remote screen interaction disconnected, perform a manual camera/voice check. Verify the displayed detector is YOLO26n. Compare recognition on the same scenes rather than assuming an upgrade improved it.
-
-No AWS resource changes, training jobs, model-learning promotion or GitHub-hosted builds were performed for this installation preparation.
+The YOLO11 source baseline remains on `main` and at `baseline/live-yolo11-2026-10-24`. No AWS resource changes, training jobs, model-learning promotion or GitHub-hosted builds were performed for this installation.

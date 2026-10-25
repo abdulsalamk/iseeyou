@@ -26,5 +26,6 @@ The user has reverted to local development to avoid cloud deployment overhead.
 - Keep GitHub as source control. Push authorized code changes normally; a push is not an instruction to deploy through the old cloud bridge.
 - Check the selected checkout and branch before work. The user's original checkout is `/Users/abdulkunnummal/source/iseeyou`; other checkouts may have different commits or pending work. Preserve all changes.
 - Preserve the installed bundle identifier and existing calibration. Do not claim model accuracy, reliable door/stair recognition, or locked-phone glasses operation without real-world verification.
+- After every normal app/model installation on the physical iPhone, run the complete `UnitChecks` scheme on that same device before calling the install verified. Record pass/fail/skip counts and explain any skip; a successful build or launch does not replace this run. The test-runner installation itself is part of that verification and does not trigger recursive reruns.
 
 The previous cloud-built release was successfully installed on the physical iPhone. Returning to local development does not require reinstalling that unchanged app.
