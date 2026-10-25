@@ -1,3 +1,6 @@
 {
-  "models/yolo26n.pt": "9b09cc8bf347f0fc8a5f7657480587f25db09b34bf33b0652110fb03a8ad4fef"
+  "models/yolo26n.pt": "9b09cc8bf347f0fc8a5f7657480587f25db09b34bf33b0652110fb03a8ad4fef",
+  "ISeeYou/Models/yolo26n.mlpackage/Data/com.apple.CoreML/model.mlmodel": "df81bd2c589698cb73631cbe5504d74fb02b1e3bbb881675efd7ae253c398171",
+  "ISeeYou/Models/yolo26n.mlpackage/Data/com.apple.CoreML/weights/weight.bin": "f82303f42d87e24ec05239f8ed6d69426aafe4da413fae2852dca2c60366ef8c",
+  "ISeeYou/Models/yolo26n.mlpackage/Manifest.json": "ac4df182702a56525a492aaca3725a7c303053551922ce8f8a2617107f248827"
 }

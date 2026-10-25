@@ -47,7 +47,17 @@ final class DetectorModelStoreTests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: dir) }
         let store = DetectorModelStore(root: dir, documents: dir)
         XCTAssertThrowsError(try store.activateStaged())
-        XCTAssertNil(try store.load(), "No bundled detector should be selected until YOLO26 is exported")
+        let loaded = try XCTUnwrap(store.load(), "Bundled YOLO26 must be present after export")
+        XCTAssertEqual(loaded.1, "yolo26n-bundled-coreml")
+        let colorSpace = CGColorSpaceCreateDeviceRGB()
+        let context = try XCTUnwrap(CGContext(data: nil, width: 640, height: 640, bitsPerComponent: 8,
+            bytesPerRow: 640 * 4, space: colorSpace, bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue))
+        context.setFillColor(CGColor(gray: 0.5, alpha: 1))
+        context.fill(CGRect(x: 0, y: 0, width: 640, height: 640))
+        let image = try XCTUnwrap(context.makeImage())
+        try VNImageRequestHandler(cgImage: image, orientation: .up).perform([loaded.0])
+        XCTAssertNotNil(loaded.0.results as? [VNRecognizedObjectObservation],
+            "Export must preserve Vision recognized-object output, including an empty result")
     }
     /// Opt-in static-image benchmark. Merely running UnitChecks does not capture or upload.
     func testStagedCandidateBenchmark() throws {
