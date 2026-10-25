@@ -11,9 +11,24 @@ mkdir -m 700 -p "$HOME/.local/share/iseeyou-learning"
 python3 scripts/learning/fetch_local_queue.py --output "$HOME/.local/share/iseeyou-learning/local-queue-$(date +%Y%m%d-%H%M%S)"
 ```
 
-This command uses the local `abdul` AWS profile and does not delete the S3 objects; the queue can be fetched again. The app's routing switch and fetch command do **not** yet implement Sign in with ChatGPT, automatic frame labeling, consent to ChatGPT plan usage, or detection of the ChatGPT 10% weekly app limit. Until that integration exists, do not treat fetched samples as labeled or submit them to an API-key-based workflow. ChatGPT plan usage limits are managed in ChatGPT Settings > Usage. Human-reviewed labels, the existing local training/evaluation gates, and candidate-only delivery remain required.
+This command uses the local `abdul` AWS profile and does not delete S3 objects. It writes a local index with pinned manifest versions and checksum-verified frame files. S3 objects remain queued if the Mac is unavailable.
 
-This workflow runs from the Mac immediately when requested. It does not wait for the nightly inventory, create cloud GPU resources, restore cloud iPhone builds, or automatically promote a model. Nova proposes annotations; a reviewer supplies complete spatial labels before training. Model delivery uses the connected physical iPhone and the existing bundle identifier. It is signed local delivery, not an OTA model service.
+### Sign in and label the local queue
+
+Install the small sign-in verifier dependency, then run the label command:
+
+```sh
+python3 -m pip install -r scripts/learning/requirements-chatgpt.txt
+python3 scripts/learning/pipeline.py label-local --queue "$HOME/.local/share/iseeyou-learning/local-queue-YYYYMMDD-HHMMSS"
+```
+
+If no ChatGPT connection is saved, the command asks before opening the browser for Sign in with ChatGPT. The browser asks for permission to use your ChatGPT plan. Credentials and the stable local host ID stay under `~/.config/iseeyou-teacher/chatgpt/` with owner-only permissions. The tool uses the fixed **`gpt-6.1-sol`** model for image-label proposals; it pauses if the signed-in account does not expose that model or if plan-use permission is missing. It sends the sampled still frames, not the video clip, to the Responses API with storage disabled and streaming enabled.
+
+Before each labeling batch, the command opens ChatGPT Settings > Usage and asks you to confirm this app's weekly usage limit is set to **10%**. The app cannot read that setting. If ChatGPT reports that the app limit has been reached, the command pauses and preserves completed proposals and remaining queued work. It does not retry through an API key or another model.
+
+Results are written to `chatgpt-proposals.json` and as unapproved `teacher_proposal` entries in `review.json`. Fill in the reviewer, group, split, and complete human-confirmed boxes before `curate`; model proposals never become training labels automatically. The Mac performs local CPU YOLO26n training and the existing held-out evaluation and candidate-delivery checks. ChatGPT labels images; it does not train YOLO.
+
+This workflow runs from the Mac immediately when requested. It does not wait for the nightly inventory, create cloud GPU resources, restore cloud iPhone builds, or automatically promote a model. Nova or ChatGPT can propose annotations; a reviewer supplies complete spatial labels before training. Model delivery uses the connected physical iPhone and the existing bundle identifier. It is signed local delivery, not an OTA model service.
 
 ## Review and curate
 
@@ -25,7 +40,7 @@ chmod 700 "$HOME/.local/share/iseeyou-learning"
 python3 scripts/learning/pipeline.py fetch --output "$HOME/.local/share/iseeyou-learning/review-001"
 ```
 
-`review.json` lists image checksums, pinned S3 source versions and Nova proposals. Fetch excludes mock completions and marked synthetic fixtures. For each real example, a reviewer must fill `reviewed_by`, `complete_annotation: true`, `group`, `split`, and `objects`. Objects use `{"label":"reviewed_object","box":[xmin,ymin,xmax,ymax]}` with normalized top-left coordinates. Replace the example label with the human-confirmed object name. Label every visible supported object; use an empty list only for a reviewed negative image. Teacher boxes are suggestions, never copied into approved annotations automatically. Give frames from the same recording/session/scene the same group, and keep groups entirely within one split. Exact duplicate images are rejected even within a split. Visually near-identical frames and repeated views of the same scene must also be grouped by the reviewer.
+`review.json` lists image checksums, pinned source versions and Nova or ChatGPT proposals. Fetching excludes AWS mock completions and marked synthetic fixtures. For each real example, a reviewer must fill `reviewed_by`, `complete_annotation: true`, `group`, `split`, and `objects`. Objects use `{"label":"reviewed_object","box":[xmin,ymin,xmax,ymax]}` with normalized top-left coordinates. Replace the example label with the human-confirmed object name. Label every visible supported object; use an empty list only for a reviewed negative image. Teacher boxes are suggestions, never copied into approved annotations automatically. Give frames from the same recording/session/scene the same group, and keep groups entirely within one split. Exact duplicate images are rejected even within a split. Visually near-identical frames and repeated views of the same scene must also be grouped by the reviewer.
 
 Retain all 80 existing COCO class IDs. Human-approved additional classes are appended in alphabetical order; they receive IDs only after the existing classes, and that list stays fixed for each dataset version. Merge independently reviewed historical/replay examples into the same workspace. Minimum distinct images per new class 20 train / 5 validation / 5 test; each existing class requires 5 / 2 / 3. These are minimum gates, not proof that a dataset is representative. For each correction, include different examples of the corrected object, the objects it was confused with, and challenging scenes. Repeated frames of one instance do not establish generalization. No class is silently dropped to get a training run through.
 

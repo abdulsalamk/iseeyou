@@ -70,7 +70,7 @@ struct CameraScreen: View {
                         .disabled(engine.running || engine.starting || engine.modelUpdateBusy)
                     Button("Use bundled YOLO26 detector") { engine.updateDetector(useBundled: true) }
                         .disabled(engine.running || engine.starting || engine.modelUpdateBusy)
-                    Text("Updates download over Wi-Fi into a staging area. Stop the camera to install; the signature, checksums and Core ML output are verified first. Later camera samples feed Nova comparisons. Restore the previous app build to return to YOLO11.").font(.caption)
+                    Text("Updates download over Wi-Fi into a staging area. Stop the camera to install; the signature, checksums and Core ML output are verified first. New camera samples follow the selected learning path: AWS uses Nova; Local Mac uses ChatGPT after plan sign-in. Restore the previous app build to return to YOLO11.").font(.caption)
                 }
                 Text("Received video frames: \(engine.receivedFrames)").font(.caption.monospacedDigit()).accessibilityIdentifier("cameraFrames")
                 ZStack {
@@ -237,7 +237,7 @@ private struct BackgroundTeacherPanel: View {
                 Text("When enabled with the camera running, this pilot records three low-rate frames into a silent three-second clip, about once a minute. It uploads the clip, its first image and matching YOLO predictions over Wi-Fi. It never records microphone audio or other apps.")
                 Text("Up to four clips wait privately on this phone for up to 24 hours. Uploads retry with a bounded backoff. The server accepts up to 50 new samples per UTC day. Raw media expires after seven days; proposed results after thirty days. Battery overhead is not yet measured. Mock results are not AI analysis or training data.")
                 if teacher.learningMode == .localMac {
-                    Text("Local Mac + ChatGPT is a routing choice. The Mac queue does not make ChatGPT requests yet; review and training remain an operator-run local workflow until ChatGPT sign-in and usage-limit handling are integrated.")
+                    Text("When the Mac is available, run the local learning command to label sampled frames with your ChatGPT plan. Set this app's weekly usage limit to 10% in ChatGPT Settings > Usage; the Mac command confirms this before each batch and pauses when ChatGPT reports a limit. Label proposals still require human review before YOLO training.")
                     Link("Check ChatGPT plan usage", destination: URL(string: "https://chatgpt.com/#settings/Usage")!)
                 }
             }.font(.caption)

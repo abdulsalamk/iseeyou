@@ -85,6 +85,12 @@ def fetch(args):
     print(f'{len(samples)} unapproved samples downloaded for review; annotate every visible supported object and assign independent scene/session groups.')
 
 
+def label_local(args):
+    """Create human-reviewable ChatGPT proposals for a fetched Local Mac queue."""
+    import chatgpt_siwc
+    return chatgpt_siwc.label_local(Path(args.queue))
+
+
 def validate_names(doc):
     names = doc.get('names')
     require(isinstance(names, list) and len(names) >= len(COCO) and names[:len(COCO)] == COCO,
@@ -445,6 +451,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest='command', required=True)
     p = sub.add_parser('fetch'); p.add_argument('--output', required=True); p.add_argument('--limit', type=int, default=100)
+    p = sub.add_parser('label-local'); p.add_argument('--queue', required=True, help='Fetched Local Mac queue directory')
     p = sub.add_parser('curate'); p.add_argument('--review', required=True); p.add_argument('--output', required=True)
     p = sub.add_parser('train'); p.add_argument('--dataset', required=True); p.add_argument('--output', required=True); p.add_argument('--epochs', type=int, default=30)
     p = sub.add_parser('evaluate'); p.add_argument('--dataset', required=True); p.add_argument('--checkpoint', required=True); p.add_argument('--output', required=True)
