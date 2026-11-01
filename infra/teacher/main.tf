@@ -82,6 +82,14 @@ resource "aws_s3_bucket_lifecycle_configuration" "data" {
     abort_incomplete_multipart_upload { days_after_initiation = 1 }
   }
   rule {
+    id     = "local-raw-retention"
+    status = "Enabled"
+    filter { prefix = "local/raw/" }
+    expiration { days = 7 }
+    noncurrent_version_expiration { noncurrent_days = 1 }
+    abort_incomplete_multipart_upload { days_after_initiation = 1 }
+  }
+  rule {
     id     = "candidate-retention"
     status = "Enabled"
     filter { prefix = "candidates/" }

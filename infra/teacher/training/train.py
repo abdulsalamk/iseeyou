@@ -151,14 +151,14 @@ def main():
     output.mkdir(parents=True, exist_ok=True)
     shutil.copyfile(best, output / 'yolo-pseudo-candidate.pt')
     (output / 'evaluation.json').write_text(json.dumps(evaluation, allow_nan=False, indent=2) + '\n')
-    coreml_package = Path(candidate_model.export(format='coreml', imgsz=640, nms=True, half=True, device='cpu', conf=.001))
+    coreml_package = Path(candidate_model.export(format='coreml', imgsz=640, nms=True, quantize=16, device='cpu', conf=.001))
     shutil.copytree(coreml_package, output / 'candidate.mlpackage')
     digest = hashlib.sha256((output / 'yolo-pseudo-candidate.pt').read_bytes()).hexdigest()
     (output / 'provenance.json').write_text(json.dumps({
         'session_id': session_id, 'dataset_sha256': hashlib.sha256(manifest_path.read_bytes()).hexdigest(),
         'checkpoint_sha256': digest, 'annotation_source': 'nova_pseudo_labels', 'evaluation_passed': True,
         'model_promoted': False,
-        'grouped_splits': rows, 'ultralytics_version': '8.3.161'}, indent=2) + '\n')
+        'grouped_splits': rows, 'ultralytics_version': __import__('ultralytics').__version__}, indent=2) + '\n')
     try:
         db = boto3.client('dynamodb')
         db.update_item(TableName=os.environ['TABLE'], Key={'id': {'S': 'session#' + session_id}},

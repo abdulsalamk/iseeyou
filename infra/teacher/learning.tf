@@ -16,9 +16,9 @@ resource "aws_s3_object" "training_code" {
 
 resource "aws_s3_object" "baseline_checkpoint" {
   bucket                 = aws_s3_bucket.data.id
-  key                    = "learning/baseline/yolo11n.pt"
-  source                 = "${path.module}/../../models/yolo11n.pt"
-  source_hash            = filebase64sha256("${path.module}/../../models/yolo11n.pt")
+  key                    = "learning/baseline/yolo26n.pt"
+  source                 = "${path.module}/../../models/yolo26n.pt"
+  source_hash            = filebase64sha256("${path.module}/../../models/yolo26n.pt")
   server_side_encryption = "AES256"
   content_type           = "application/octet-stream"
 }

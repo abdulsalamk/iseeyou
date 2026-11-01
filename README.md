@@ -1,6 +1,6 @@
 # I See You — iPhone 16 POC
 
-Native SwiftUI, AVFoundation, Vision and Core ML application implementing milestones 1 and 2 of [the original brief](I-See-You-POC.md). The subsequent user clarification expands detection from people to **all YOLO11n object classes**. People, vehicles, chairs and other supported classes are displayed; arbitrary hazards, surface changes and obstacles outside the trained vocabulary are not covered.
+Native SwiftUI, AVFoundation, Vision and Core ML application implementing milestones 1 and 2 of [the original brief](I-See-You-POC.md). This branch evaluates YOLO26n as a candidate for the YOLO11 baseline. People, vehicles, chairs and other supported classes are displayed; arbitrary hazards, surface changes and obstacles outside the trained vocabulary are not covered.
 
 ## Run in Xcode
 
@@ -8,11 +8,11 @@ Native SwiftUI, AVFoundation, Vision and Core ML application implementing milest
 2. Open `ISeeYou.xcodeproj`. Select the ISeeYou target, choose your development team in Signing & Capabilities, and change `com.iseeyou.research` to your own unique identifier.
 3. Connect your standard iPhone 16, trust the Mac, enable Developer Mode and select it as the run destination. Press Cmd+R.
 4. Tap **Start camera** and grant camera permission. Nothing is recorded or uploaded. Returning from the background requires tapping Start again.
-5. The tested YOLO11n Core ML package is included, so detection works without installing Python or exporting a model. If you remove the model, preview still works and displays missing-model guidance.
+5. This branch contains no YOLO11 model files. The YOLO26n package has now been exported locally and the signed iPhone Release build succeeds. Physical-device testing and installation are pending phone connectivity; see `docs/YOLO26_STATUS.md`. Other checkouts must export the model before building; without the package, object detection is paused. The YOLO11 baseline remains available on `main` and at `baseline/live-yolo11-2026-10-24` for restoration. Removing YOLO11 from this working tree does not delete that baseline.
 
-## YOLO11n model setup
+## YOLO26n candidate model setup
 
-The bundled model is at `ISeeYou/Models/yolo11n.mlpackage` and its original checkpoint is at `models/yolo11n.pt`. See [model provenance and checksums](models/README.md). To regenerate it, move the existing package outside the repo first (the export script refuses to overwrite it). Use a separate Python 3.11 environment on the Mac with at least 3 GB free disk space. Pinned packages avoid the conversion failure observed with PyTorch 2.14.1:
+The YOLO26 checkpoint is at `models/yolo26n.pt`; its locally exported package is at `ISeeYou/Models/yolo26n.mlpackage`. YOLO11 assets are intentionally absent from this branch; restore them from the baseline tag when a comparison requires them. See [model provenance and checksums](models/README.md). To export YOLO26, use a separate Python 3.11 environment on the Mac with at least 3 GB free disk space:
 
 ```sh
 python3.11 -m venv .venv
@@ -23,7 +23,7 @@ brew install xcodegen # only if not already installed
 xcodegen generate
 ```
 
-The script downloads official `yolo11n.pt`, exports a 640x640 FP16 Core ML package with **NMS enabled**, and copies it into `ISeeYou/Models/yolo11n.mlpackage`. An optional build phase compiles it into the bundled `yolo11n.mlmodelc`. The app requires Vision recognized-object output from the NMS export, not raw prediction tensors. Record the installed package versions, weight hash and export logs for any benchmark; The pinned export has been verified on this Mac; recognition accuracy and physical iPhone 16 performance remain unverified.
+The script loads `models/yolo26n.pt`, exports a 640x640 FP16 Core ML package with **NMS enabled**, and copies it into `ISeeYou/Models/yolo26n.mlpackage`. Xcode compiles it to `yolo26n.mlmodelc`. Embedded NMS is selected to preserve the app's Vision recognized-object output interface; raw and NMS-free outputs are not accepted by the current app pipeline. Record installed package versions, weight hash and export logs for comparisons. YOLO26 recognition accuracy and physical iPhone performance remain unverified.
 
 [Ultralytics Core ML export documentation](https://docs.ultralytics.com/integrations/coreml/) describes this workflow. Review [Ultralytics licensing](https://www.ultralytics.com/license) before distributing weights or an application containing them; do not assume a proprietary redistribution licence. The model and this POC implementation are distributed under AGPL-3.0; see [LICENSE](LICENSE) and [model provenance](models/README.md).
 

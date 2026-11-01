@@ -14,7 +14,7 @@ enum CaptureSource: String, CaseIterable {
 final class CameraEngine: NSObject, ObservableObject, AVCaptureVideoDataOutputSampleBufferDelegate, @unchecked Sendable {
     let teacher = BackgroundTeacher()
     private let modelStore = DetectorModelStore()
-    private var detectorVersion = "yolo11n-bundled-coreml"
+    private var detectorVersion = "yolo26n-bundled-coreml"
     @Published private(set) var detectorStatus = "Bundled detector · no learned update installed"
     @Published private(set) var modelUpdateBusy = false
     func updateDetector(useBundled: Bool = false) {
@@ -24,12 +24,18 @@ final class CameraEngine: NSObject, ObservableObject, AVCaptureVideoDataOutputSa
             let previousVersion = detectorVersion
             do {
                 let version: String
-                if useBundled { try modelStore.useBundled(); version = "yolo11n-bundled-coreml" }
-                else { version = try modelStore.activateStaged() }
-                request = nil
-                try loadModel()
                 if useBundled {
-                    if previousVersion != "yolo11n-bundled-coreml" {
+                    try modelStore.useBundled()
+                    request = nil
+                    try loadModel()
+                    version = detectorVersion
+                } else {
+                    version = try modelStore.activateStaged()
+                    request = nil
+                    try loadModel()
+                }
+                if useBundled {
+                    if previousVersion != version {
                         teacher.reportModelFeedback(version: previousVersion, action: "rollback", activeModel: version)
                     }
                 } else {
@@ -402,6 +408,10 @@ final class CameraEngine: NSObject, ObservableObject, AVCaptureVideoDataOutputSa
         if let (loaded, version) = try modelStore.load() {
             request = loaded; detectorVersion = version
             DispatchQueue.main.async { [self] in detectorStatus = "Detector: " + version }
+        } else {
+            request = nil
+            detectorVersion = "unavailable"
+            DispatchQueue.main.async { [self] in detectorStatus = "YOLO26 Core ML model is not installed; object detection is paused." }
         }
     }
 
@@ -501,7 +511,7 @@ final class CameraEngine: NSObject, ObservableObject, AVCaptureVideoDataOutputSa
                     self.alerts.reset()
                     self.hazardDecisions = []
                     self.detections = []
-                    self.status = "Unsupported model outputs. Export YOLO11n with nms=True."
+                    self.status = "Unsupported model outputs. Export the detector with embedded NMS for Vision."
                 }
                 return
             }

@@ -22,7 +22,7 @@ def validate_manifest(doc):
         if not isinstance(doc.get(field), str) or not 1 <= len(doc[field]) <= 160:
             raise ValueError('Missing or oversized frame metadata')
     key = doc.get('image_key', '')
-    if not isinstance(key, str) or not re.fullmatch(r'raw/images/[A-Za-z0-9_/-]+\.(jpg|jpeg|png)', key):
+    if not isinstance(key, str) or not re.fullmatch(r'(?:local/)?raw/images/[A-Za-z0-9_/-]+\.(jpg|jpeg|png)', key):
         raise ValueError('Image must use the private image prefix')
     predictions = doc.get('predictions')
     if not isinstance(predictions, list) or len(predictions) > 100:
@@ -46,7 +46,7 @@ def validate_manifest(doc):
         if not isinstance(frame, dict) or not isinstance(frame.get('frame_id'), str):
             raise ValueError('Invalid frame metadata')
         key = frame.get('image_key', '')
-        if not isinstance(key, str) or not re.fullmatch(r'raw/(?:frames|images)/[A-Za-z0-9_-]+\.jpg', key):
+        if not isinstance(key, str) or not re.fullmatch(r'(?:local/)?raw/(?:frames|images)/[A-Za-z0-9_-]+\.jpg', key):
             raise ValueError('Invalid frame image key')
         if type(frame.get('image_size')) is not int or not 0 < frame['image_size'] <= 3_000_000:
             raise ValueError('Invalid frame image size')

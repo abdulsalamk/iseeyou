@@ -42,14 +42,22 @@ final class DetectorModelStoreTests: XCTestCase {
             XCTAssertThrowsError(try store.verifiedPayload(envelope: envelope, package: dir))
         }
     }
-    func testMissingUpdateLeavesBundledDetectorUsable() throws {
+    func testMissingUpdateDoesNotSelectAStaleBundledModel() throws {
         let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: dir) }
         let store = DetectorModelStore(root: dir, documents: dir)
         XCTAssertThrowsError(try store.activateStaged())
-        XCTAssertEqual(try store.load()?.1, "yolo11n-bundled-coreml")
-        try store.useBundled()
-        XCTAssertEqual(try store.load()?.1, "yolo11n-bundled-coreml")
+        let loaded = try XCTUnwrap(store.load(), "Bundled YOLO26 must be present after export")
+        XCTAssertEqual(loaded.1, "yolo26n-bundled-coreml")
+        let colorSpace = CGColorSpaceCreateDeviceRGB()
+        let context = try XCTUnwrap(CGContext(data: nil, width: 640, height: 640, bitsPerComponent: 8,
+            bytesPerRow: 640 * 4, space: colorSpace, bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue))
+        context.setFillColor(CGColor(gray: 0.5, alpha: 1))
+        context.fill(CGRect(x: 0, y: 0, width: 640, height: 640))
+        let image = try XCTUnwrap(context.makeImage())
+        try VNImageRequestHandler(cgImage: image, orientation: .up).perform([loaded.0])
+        XCTAssertNotNil(loaded.0.results as? [VNRecognizedObjectObservation],
+            "Export must preserve Vision recognized-object output, including an empty result")
     }
     /// Opt-in static-image benchmark. Merely running UnitChecks does not capture or upload.
     func testStagedCandidateBenchmark() throws {
@@ -68,7 +76,11 @@ final class DetectorModelStoreTests: XCTestCase {
         let compiled = try MLModel.compileModel(at: stage.appendingPathComponent("candidate.mlpackage"))
         defer { try? FileManager.default.removeItem(at: compiled) }
         let candidate = try DetectorModelStore.request(at: compiled)
-        let baseline = try DetectorModelStore.request(at: XCTUnwrap(Bundle.main.url(forResource: "yolo11n", withExtension: "mlmodelc")))
+        let baselinePackage = stage.appendingPathComponent("baseline.mlpackage")
+        guard FileManager.default.fileExists(atPath: baselinePackage.path) else { throw XCTSkip("YOLO11 baseline package not staged") }
+        let baselineCompiled = try MLModel.compileModel(at: baselinePackage)
+        defer { try? FileManager.default.removeItem(at: baselineCompiled) }
+        let baseline = try DetectorModelStore.request(at: baselineCompiled)
         var results: [[String: Any]] = [], times: [Double] = []
         for image in spec.images {
             guard image == URL(fileURLWithPath: image).lastPathComponent else { XCTFail("Unsafe image path"); return }
