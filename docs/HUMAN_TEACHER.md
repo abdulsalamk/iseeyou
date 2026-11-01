@@ -52,3 +52,11 @@ Before enabling a trainer, enforce at least **20 validated corrections** (not tw
 - Manual voice/navigation acceptance was requested and remains pending. Speech permission, simultaneous alerts, Bluetooth/glasses route and real camera correction acceptance must not be inferred from synthetic tests.
 
 Reproduce offline AWS checks in a separate virtual environment with `pip install -r tests/aws/requirements.txt`, then `python -m unittest discover -s tests/aws -p 'test_*.py'`. Tests mock service clients; do not supply live AWS credentials to the unit suite.
+
+## Speech-capture follow-up — 1 November 2026
+
+Real volunteer attempts produced no correction records. The first implementation waited for `SFSpeechRecognitionResult.isFinal`, which continuous recognition may withhold even after returning a complete command. The fix accepts a valid command after 1.2 seconds with unchanged recognized text, or immediately on a final result. Repeated partials do not postpone capture; revised text invalidates older pending captures; final/partial duplicates cannot create another correction. Only the command portion after the word “Correction” is retained, not preceding ambient conversation.
+
+The screen now separates microphone buffers/sound detection, recognized command preview, and a persistent last correction outcome. A successful save vibrates and announces through VoiceOver when active. Audio remains on-device and is neither recorded nor uploaded. Metadata-only diagnostics (`HumanTeacherStatus.json` in Application Support, file-protected and excluded from backup) allow inspection without screen mirroring or restarting the camera. The diagnostics show errors/rejections; a “Listening” message alone is not proof of recognized speech.
+
+Regression coverage includes unchanged partial results, revised commands, duplicate final results, incomplete commands, and a synthetic frame capture through the actual partial-transcript path without a final result. The first updated device suite passed 60 tests with zero failures and one unstaged-candidate benchmark skipped (61 total). Final installation and post-install results follow after completion. Real speech/navigation verification remains pending; the specific reason for the earlier live failures is not established solely by these synthetic checks.

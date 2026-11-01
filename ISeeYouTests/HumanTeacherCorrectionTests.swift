@@ -46,6 +46,31 @@ final class CorrectionWorkflowTests: XCTestCase {
         XCTAssertNil(CorrectionCommand.label("Correction this is a"))
         XCTAssertNil(CorrectionCommand.label("Correction this is 123"))
     }
+    func testStablePartialCommandDoesNotRequireFinalRecognition() {
+        var state = CorrectionTranscriptState()
+        let first = state.update("Correction this is a piano")!
+        XCTAssertNil(state.update("Correction this is a piano"))
+        let newer = state.update("Correction this is a keyboard")!
+        XCTAssertNil(state.take(revision: first))
+        XCTAssertEqual(state.take(revision: newer), "Correction this is a keyboard")
+        XCTAssertNil(state.take(revision: newer))
+        XCTAssertNil(state.update("Correction this is a stool"))
+    }
+    func testIdenticalFinalResultSupersedesPartialWithoutDuplicatingCapture() {
+        var state = CorrectionTranscriptState()
+        let partial = state.update("Correction this is a piano")!
+        let final = state.update("Correction this is a piano", isFinal: true)!
+        XCTAssertNil(state.take(revision: partial))
+        XCTAssertEqual(state.take(revision: final), "Correction this is a piano")
+        XCTAssertNil(state.take(revision: final))
+    }
+    func testIncompleteCommandAndUnrelatedSpeechCannotTriggerCapture() {
+        var state = CorrectionTranscriptState()
+        let revision = state.update("Correction this is")!
+        XCTAssertNil(state.take(revision: revision))
+        XCTAssertNil(CorrectionCommand.command(in: "a keyboard"))
+        XCTAssertEqual(CorrectionCommand.command(in: "hello Correction, this is a stool"), "Correction, this is a stool")
+    }
     func testAssociationNeverGuessesAmongObjects() {
         let item = Detection(label: "laptop", confidence: 0.9, bounds: CGRect(x: 0.1, y: 0.2, width: 0.3, height: 0.4))
         XCTAssertNil(CorrectionCommand.association([]))

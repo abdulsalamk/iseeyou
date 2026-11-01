@@ -255,6 +255,9 @@ private struct HumanTeacherPanel: View {
             Toggle("Teacher Mode — volunteer corrections", isOn: $teacher.enabled)
                 .accessibilityIdentifier("humanTeacherToggle")
             Text(teacher.status).accessibilityIdentifier("humanTeacherStatus")
+            Text(teacher.microphoneStatus).font(.caption).accessibilityIdentifier("humanTeacherMicrophone")
+            Text(teacher.commandPreview).font(.caption).accessibilityIdentifier("humanTeacherCommand")
+            Text(teacher.lastSaved).font(.caption.bold()).accessibilityIdentifier("humanTeacherLastSaved")
             Text("Opt-in microphone listening on this device only. Aim at one detected object and say ‘Correction, this is a piano’. One recent image and its detections are saved; no audio is stored. Avoid bystanders and private information. Uploads wait until the camera stops while the app is visible. Queued images expire after 24 hours when the app runs.")
                 .font(.caption)
         }

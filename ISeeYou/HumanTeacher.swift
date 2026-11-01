@@ -16,10 +16,30 @@ struct CorrectionCommand {
               label.unicodeScalars.allSatisfy({ CharacterSet.letters.contains($0) || $0 == " " || $0 == "-" }) else { return nil }
         return label
     }
+    static func command(in text: String) -> String? {
+        guard let range = text.range(of: "\\bcorrection\\b", options: [.regularExpression, .caseInsensitive, .backwards]) else { return nil }
+        return String(text[range.lowerBound...])
+    }
     static func association(_ detections: [Detection]) -> Detection? {
         // Never guess which of several visible objects a volunteer means.
         guard detections.count == 1 else { return nil }
         return detections[0]
+    }
+}
+
+/// Speech can return a complete command as a partial result indefinitely.
+/// A revision-bound quiet period accepts it once, without waiting for isFinal.
+struct CorrectionTranscriptState {
+    private(set) var text = ""
+    private var revision = 0
+    private var consumed = false
+    mutating func update(_ value: String, isFinal: Bool = false) -> Int? {
+        guard !consumed, value != text || isFinal else { return nil }
+        text = value; revision += 1; return revision
+    }
+    mutating func take(revision expected: Int) -> String? {
+        guard !consumed, expected == revision, CorrectionCommand.label(text) != nil else { return nil }
+        consumed = true; return text
     }
 }
 
@@ -35,6 +55,12 @@ struct CorrectionRetry: Codable {
 final class HumanTeacher: ObservableObject, @unchecked Sendable {
     @Published var enabled = false { didSet { configure() } }
     @Published private(set) var status = "Teacher Mode off"
+    @Published private(set) var microphoneStatus = "Microphone off"
+    @Published private(set) var commandPreview = "No correction command heard"
+    @Published private(set) var lastSaved = "No correction saved this session"
+    private var transcriptState = CorrectionTranscriptState() // work queue only
+    private var lastMeter = Date.distantPast // lock protected
+    private var recognitionResults = 0 // main thread only
     private let work = DispatchQueue(label: "iseeyou.human-teacher", qos: .utility)
     private let lock = NSLock()
     private var accepting = false, active = false, foreground = true, slot = false
@@ -72,7 +98,55 @@ final class HumanTeacher: ObservableObject, @unchecked Sendable {
         timer.resume(); self.timer = timer
     }
     deinit { timer?.cancel(); recognition?.cancel(); network.invalidateAndCancel() }
-    private func publish(_ message: String) { DispatchQueue.main.async { [weak self] in self?.status = message } }
+    private func publish(_ message: String) {
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }; self.status = message
+            if message.hasPrefix("Correction") || message.hasPrefix("No recent") || message.hasPrefix("Use ‘Correction") { self.lastSaved = message }
+            self.saveDiagnostics()
+        }
+    }
+    private func saveDiagnostics() {
+        let snapshot: [String: Any] = ["updatedAt": ISO8601DateFormatter().string(from: Date()),
+            "status": status, "microphone": microphoneStatus, "command": commandPreview,
+            "recognitionResults": recognitionResults, "enabled": enabled, "lastSaved": lastSaved]
+        guard let data = try? JSONSerialization.data(withJSONObject: snapshot) else { return }
+        let file = directory.deletingLastPathComponent().appendingPathComponent("HumanTeacherStatus.json")
+        work.async {
+            try? data.write(to: file, options: [.atomic, .completeFileProtection])
+            var url = file; var values = URLResourceValues(); values.isExcludedFromBackup = true
+            try? url.setResourceValues(values)
+        }
+    }
+    private func inputArrived(_ buffer: AVAudioPCMBuffer) {
+        let now = Date()
+        guard lock.withLock({ () -> Bool in
+            guard accepting, now.timeIntervalSince(lastMeter) >= 1 else { return false }
+            lastMeter = now; return true
+        }) else { return }
+        var peak: Float = 0
+        if let channel = buffer.floatChannelData?[0] {
+            for i in 0..<Int(buffer.frameLength) { peak = max(peak, abs(channel[i])) }
+        }
+        let message = peak > 0.002 ? "Microphone input arriving — sound detected" : "Microphone input arriving — quiet"
+        DispatchQueue.main.async { [weak self] in
+            guard let self, self.lock.withLock({ self.accepting }), CorrectionAudio.listening else { return }
+            self.microphoneStatus = message + " · " + AVAudioSession.sharedInstance().currentRoute.inputs.map(\.portName).joined(separator: ", "); self.saveDiagnostics()
+        }
+    }
+    private func restartSpeech(lease: UUID, utterance: UUID, error: Error? = nil) {
+        DispatchQueue.main.async { [weak self] in
+            guard let self, self.lock.withLock({ self.accepting && self.epoch == lease && self.speechLease == utterance }) else { return }
+            self.stopListening()
+            self.recognitionFailures = error == nil ? 0 : self.recognitionFailures + 1
+            if let error {
+                let e = error as NSError
+                self.publish("Speech error (\(e.domain) \(e.code)); retrying")
+            }
+            guard self.recognitionFailures < 3 else { self.publish("On-device speech stopped after repeated errors; toggle Teacher Mode to retry"); return }
+            let restart = DispatchWorkItem { [weak self] in self?.listen() }; self.restart = restart
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1, execute: restart)
+        }
+    }
     func cameraChanged(_ running: Bool) {
         lock.withLock { active = running; epoch = UUID(); accepting = enabled && foreground && running }
         configure()
@@ -104,6 +178,7 @@ final class HumanTeacher: ObservableObject, @unchecked Sendable {
         restart?.cancel(); restart = nil
         recognition?.cancel(); recognition = nil; request?.endAudio(); request = nil
         audio.stop()
+        microphoneStatus = "Microphone off"
         if CorrectionAudio.listening || tapped {
             try? AVAudioSession.sharedInstance().setCategory(.playback, mode: .spokenAudio, options: [.mixWithOthers])
         }
@@ -121,37 +196,49 @@ final class HumanTeacher: ObservableObject, @unchecked Sendable {
             self.request = request
             let node = audio.inputNode, format = audio.inputNode.outputFormat(forBus: 0)
             guard format.sampleRate > 0, format.channelCount > 0 else { publish("Microphone unavailable"); return }
-            node.installTap(onBus: 0, bufferSize: 1024, format: format) { buffer, _ in request.append(buffer) }; tapped = true
+            node.installTap(onBus: 0, bufferSize: 1024, format: format) { [weak self] buffer, _ in request.append(buffer); self?.inputArrived(buffer) }; tapped = true
             audio.prepare(); try audio.start(); CorrectionAudio.listening = true
-            work.async { [weak self] in self?.anchor = nil }
+            microphoneStatus = "Waiting for microphone input"
+            work.async { [weak self] in self?.anchor = nil; self?.transcriptState = CorrectionTranscriptState() }
             let utterance = UUID()
             let lease = lock.withLock { speechLease = utterance; return epoch }
             recognition = recognizer.recognitionTask(with: request) { [weak self] result, error in
                 guard let self, self.lock.withLock({ self.accepting && self.epoch == lease && self.speechLease == utterance }) else { return }
                 if let result {
-                    let text = result.bestTranscription.formattedString
-                    if text.lowercased().hasPrefix("correction") {
-                        let now = Date()
-                        self.work.async { [weak self] in
-                            guard let self, self.lock.withLock({ self.accepting && self.epoch == lease }) else { return }
-                            if self.anchor == nil { self.anchor = self.frames.last(where: { now.timeIntervalSince($0.date) >= 0 && now.timeIntervalSince($0.date) < 2 }) }
-                            if result.isFinal, self.lastCorrection != utterance { self.lastCorrection = utterance; self.capture(text, lease: lease) }
-                        }
-                    }
-                }
-                if result?.isFinal == true || error != nil {
+                    let command = CorrectionCommand.command(in: result.bestTranscription.formattedString)
                     DispatchQueue.main.async {
-                        guard self.lock.withLock({ self.accepting && self.epoch == lease && self.speechLease == utterance }) else { return }
-                        self.stopListening()
-                        self.recognitionFailures = error == nil ? 0 : self.recognitionFailures + 1
-                        guard self.recognitionFailures < 3 else { self.publish("On-device speech stopped after repeated errors; toggle Teacher Mode to retry"); return }
-                        let restart = DispatchWorkItem { [weak self] in self?.listen() }; self.restart = restart
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 1, execute: restart)
+                        self.recognitionResults += 1
+                        if let command { self.commandPreview = "Heard: " + String(command.prefix(300)) }
+                        else { self.commandPreview = "Speech recognized — waiting for ‘Correction, this is …’" }
+                        self.saveDiagnostics()
                     }
-                }
+                    if let command {
+                        self.acceptTranscript(command, final: result.isFinal, receivedAt: Date(), lease: lease, utterance: utterance)
+                    }
+                    // A final result is allowed to finish its queued capture before restart.
+                    if result.isFinal || error != nil {
+                        self.work.asyncAfter(deadline: .now() + 0.1) { self.restartSpeech(lease: lease, utterance: utterance, error: error) }
+                    }
+                } else if let error { self.restartSpeech(lease: lease, utterance: utterance, error: error) }
+
             }
             publish("Listening on device — say ‘Correction, this is a piano’. Aim at one object.")
         } catch { stopListening(); publish("Teacher microphone could not start; navigation remains available") }
+    }
+    private func acceptTranscript(_ command: String, final: Bool, receivedAt now: Date, lease: UUID, utterance: UUID, restartAfterCapture: Bool = true) {
+        work.async { [weak self] in
+            guard let self, self.lock.withLock({ self.accepting && self.epoch == lease && self.speechLease == utterance }) else { return }
+            if self.anchor == nil { self.anchor = self.frames.last(where: { now.timeIntervalSince($0.date) >= 0 && now.timeIntervalSince($0.date) < 2 }) }
+            guard let revision = self.transcriptState.update(command, isFinal: final) else { return }
+            self.work.asyncAfter(deadline: .now() + (final ? 0 : 1.2)) { [weak self] in
+                guard let self, self.lock.withLock({ self.accepting && self.epoch == lease && self.speechLease == utterance }),
+                      self.lastCorrection != utterance,
+                      let text = self.transcriptState.take(revision: revision) else { return }
+                self.lastCorrection = utterance
+                self.capture(text, lease: lease)
+                if restartAfterCapture { self.restartSpeech(lease: lease, utterance: utterance) }
+            }
+        }
     }
     func offer(_ buffer: CVPixelBuffer, detections: [Detection], modelVersion: String, source: String) {
         let now = Date()
@@ -191,6 +278,12 @@ final class HumanTeacher: ObservableObject, @unchecked Sendable {
             try frame.jpeg.write(to: folder.appendingPathComponent("frame.jpg"), options: [.atomic, .completeFileProtection])
             try record.encodedJSON().write(to: folder.appendingPathComponent("correction.json"), options: [.atomic, .completeFileProtection])
             publish("Correction saved: \(label). Upload waits until camera stops. No audio saved.")
+            DispatchQueue.main.async { [weak self] in
+                self?.lastSaved = "Saved correction: " + label
+                self?.saveDiagnostics()
+                UINotificationFeedbackGenerator().notificationOccurred(.success)
+                if UIAccessibility.isVoiceOverRunning { UIAccessibility.post(notification: .announcement, argument: "Correction saved: " + label) }
+            }
         } catch { publish("Correction could not be saved; retry while aiming at one object") }
     }
     #if DEBUG
@@ -203,11 +296,9 @@ final class HumanTeacher: ObservableObject, @unchecked Sendable {
         if let address = CVPixelBufferGetBaseAddress(buffer) { memset(address, 0, CVPixelBufferGetDataSize(buffer)) }
         CVPixelBufferUnlockBaseAddress(buffer, [])
         offer(buffer, detections: [Detection(label: "laptop", confidence: 0.9, bounds: CGRect(x: 0.1, y: 0.2, width: 0.3, height: 0.4))], modelVersion: "synthetic-test", source: "iPhone camera")
-        work.async { [self] in
-            anchor = frames.last
-            capture("Correction, this is a piano", lease: lock.withLock { epoch })
-            completion()
-        }
+        let utterance = lock.withLock { speechLease }
+        acceptTranscript("Correction, this is a piano", final: false, receivedAt: Date(), lease: lock.withLock { epoch }, utterance: utterance, restartAfterCapture: false)
+        work.asyncAfter(deadline: .now() + 1.5) { completion() }
     }
     #endif
     private var idle: Bool { lock.withLock { foreground && !active } }
