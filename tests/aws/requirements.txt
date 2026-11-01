@@ -1,0 +1,2 @@
+# SDK used by mocked offline worker tests; Lambda supplies its own runtime SDK.
+boto3==1.43.123
