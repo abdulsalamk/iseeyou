@@ -74,6 +74,13 @@ resource "aws_s3_bucket_lifecycle_configuration" "data" {
   bucket     = aws_s3_bucket.data.id
   depends_on = [aws_s3_bucket_versioning.data]
   rule {
+    id     = "expire-human-corrections"
+    status = "Enabled"
+    filter { prefix = "corrections/" }
+    expiration { days = 7 }
+    noncurrent_version_expiration { noncurrent_days = 1 }
+  }
+  rule {
     id     = "raw-retention"
     status = "Enabled"
     filter { prefix = "raw/" }

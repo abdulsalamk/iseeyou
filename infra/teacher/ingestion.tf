@@ -41,7 +41,7 @@ resource "aws_iam_role" "api" {
 resource "aws_iam_role_policy" "api" {
   role = aws_iam_role.api.id
   policy = jsonencode({ Version = "2012-10-17", Statement = [
-    { Effect = "Allow", Action = ["s3:GetObject", "s3:PutObject"], Resource = ["${aws_s3_bucket.data.arn}/raw/*", "${aws_s3_bucket.data.arn}/local/raw/*"] },
+    { Effect = "Allow", Action = ["s3:GetObject", "s3:PutObject"], Resource = ["${aws_s3_bucket.data.arn}/raw/*", "${aws_s3_bucket.data.arn}/local/raw/*", "${aws_s3_bucket.data.arn}/corrections/*"] },
     { Effect = "Allow", Action = "s3:GetObject", Resource = ["${aws_s3_bucket.data.arn}/candidates/*", "${aws_s3_bucket.data.arn}/learning/releases/*"] },
     { Effect = "Allow", Action = "s3:ListBucket", Resource = aws_s3_bucket.data.arn },
     { Effect = "Allow", Action = ["dynamodb:PutItem", "dynamodb:GetItem", "dynamodb:UpdateItem"], Resource = aws_dynamodb_table.uploads.arn },
@@ -73,7 +73,7 @@ resource "aws_apigatewayv2_integration" "uploads" {
   payload_format_version = "2.0"
 }
 resource "aws_apigatewayv2_route" "uploads" {
-  for_each  = toset(["POST /samples", "POST /samples/{sample}/complete", "GET /samples/{sample}", "POST /sessions/{session}/complete", "GET /sessions/{session}", "GET /models/latest", "POST /models/{version}/feedback"])
+  for_each  = toset(["POST /corrections", "POST /corrections/{correction}/complete", "POST /samples", "POST /samples/{sample}/complete", "GET /samples/{sample}", "POST /sessions/{session}/complete", "GET /sessions/{session}", "GET /models/latest", "POST /models/{version}/feedback"])
   api_id    = aws_apigatewayv2_api.uploads.id
   route_key = each.value
   target    = "integrations/${aws_apigatewayv2_integration.uploads.id}"

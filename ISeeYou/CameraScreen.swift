@@ -12,6 +12,7 @@ struct CameraScreen: View {
             VStack(alignment: .leading, spacing: 16) {
                 Text("I See You").font(.largeTitle.bold())
                 Text("OBJECT DETECTION • RESEARCH POC").font(.caption.bold()).foregroundStyle(.secondary)
+                HumanTeacherPanel(teacher: engine.humanTeacher)
                 BackgroundTeacherPanel(teacher: engine.teacher)
                 Picker("Camera source", selection: $engine.cameraSource) {
                     ForEach(CaptureSource.allCases, id: \.self) { Text($0.rawValue).tag($0) }
@@ -148,6 +149,7 @@ struct CameraScreen: View {
                     .font(.footnote).foregroundStyle(.secondary)
             }.padding()
         }
+        .onChange(of: scenePhase) { _, phase in engine.humanTeacher.foregroundChanged(phase == .active) }
         .onReceive(calibration.$profile) { if engine.cameraSource == .phone { engine.setCalibration($0) } }
         .onReceive(glassesCalibration.$profile) { if engine.cameraSource == .glasses { engine.setCalibration($0) } }
         .onChange(of: engine.cameraSource) { _, _ in engine.setCalibration(activeCalibration.profile) }
@@ -243,5 +245,18 @@ private struct BackgroundTeacherPanel: View {
             }.font(.caption)
         }
         .padding(10).background(.secondary.opacity(0.08)).clipShape(RoundedRectangle(cornerRadius: 10))
+    }
+}
+
+private struct HumanTeacherPanel: View {
+    @ObservedObject var teacher: HumanTeacher
+    var body: some View {
+        VStack(alignment: .leading) {
+            Toggle("Teacher Mode — volunteer corrections", isOn: $teacher.enabled)
+                .accessibilityIdentifier("humanTeacherToggle")
+            Text(teacher.status).accessibilityIdentifier("humanTeacherStatus")
+            Text("Opt-in microphone listening on this device only. Aim at one detected object and say ‘Correction, this is a piano’. One recent image and its detections are saved; no audio is stored. Avoid bystanders and private information. Uploads wait until the camera stops while the app is visible. Queued images expire after 24 hours when the app runs.")
+                .font(.caption)
+        }
     }
 }

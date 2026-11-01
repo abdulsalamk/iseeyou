@@ -1,4 +1,5 @@
 import XCTest
+import CryptoKit
 @testable import ISeeYou
 
 final class HumanTeacherCorrectionTests: XCTestCase {
@@ -33,5 +34,52 @@ final class HumanTeacherCorrectionTests: XCTestCase {
         let data = try correction.encodedJSON()
         XCTAssertNotNil(String(data: data, encoding: .utf8))
         XCTAssertTrue(correction.s3Prefix.hasPrefix("corrections/"))
+    }
+}
+
+final class CorrectionWorkflowTests: XCTestCase {
+    func testCommandParsing() {
+        XCTAssertEqual(CorrectionCommand.label("Correction, this is a piano."), "piano")
+        XCTAssertEqual(CorrectionCommand.label("Correction this is an umbrella"), "umbrella")
+        XCTAssertEqual(CorrectionCommand.label("Correction. This is a piano!"), "piano")
+        XCTAssertNil(CorrectionCommand.label("There is a piano"))
+        XCTAssertNil(CorrectionCommand.label("Correction this is a"))
+        XCTAssertNil(CorrectionCommand.label("Correction this is 123"))
+    }
+    func testAssociationNeverGuessesAmongObjects() {
+        let item = Detection(label: "laptop", confidence: 0.9, bounds: CGRect(x: 0.1, y: 0.2, width: 0.3, height: 0.4))
+        XCTAssertNil(CorrectionCommand.association([]))
+        XCTAssertNil(CorrectionCommand.association([item, item]))
+        XCTAssertEqual(CorrectionCommand.association([item])?.id, item.id)
+    }
+    func testRetryRequiresAppIdleAndUsesBackoff() {
+        let now = Date(); var retry = CorrectionRetry()
+        XCTAssertFalse(retry.ready(now: now, idle: false))
+        XCTAssertTrue(retry.ready(now: now, idle: true))
+        retry.failed(now: now)
+        XCTAssertFalse(retry.ready(now: now, idle: true))
+        XCTAssertTrue(retry.ready(now: now.addingTimeInterval(31), idle: true))
+        for _ in 0..<8 { retry.failed(now: now) }
+        XCTAssertFalse(retry.ready(now: now.addingTimeInterval(10000), idle: true))
+    }
+    func testCaptureQueuesMatchingFrameAndMetadataOffCallerQueue() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let teacher = HumanTeacher(directory: directory)
+        let done = expectation(description: "Capture persisted")
+        teacher.captureFixtureForTest { done.fulfill() }
+        wait(for: [done], timeout: 5)
+        let folders = try FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)
+        XCTAssertEqual(folders.count, 1)
+        let folder = try XCTUnwrap(folders.first)
+        let decoder = JSONDecoder(); decoder.dateDecodingStrategy = .iso8601
+        let record = try decoder.decode(HumanTeacherCorrection.self, from: Data(contentsOf: folder.appendingPathComponent("correction.json")))
+        XCTAssertEqual(record.correctedLabel, "piano")
+        XCTAssertEqual(record.originalDetection?.label, "laptop")
+        XCTAssertEqual(record.id.uuidString.lowercased(), folder.lastPathComponent)
+        XCTAssertEqual(record.frameObjectKey, record.s3Prefix + "frame.jpg")
+        let jpeg = try Data(contentsOf: folder.appendingPathComponent("frame.jpg"))
+        XCTAssertEqual(record.frameSHA256, SHA256.hash(data: jpeg).map { String(format: "%02x", $0) }.joined())
+        XCTAssertEqual(record.processingState, "awaiting_validation")
     }
 }

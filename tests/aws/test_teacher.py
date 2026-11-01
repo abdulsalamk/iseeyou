@@ -14,6 +14,14 @@ teacher = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(teacher)
 
 class TeacherTests(unittest.TestCase):
+    def setUp(self):
+        # The worker now claims DynamoDB inference locks even without sessions.
+        # Keep this suite offline rather than resolving a real AWS SDK client.
+        clients = patch('boto3.client', return_value=Mock())
+        clients.start(); self.addCleanup(clients.stop)
+        environment = patch.dict(os.environ, {'TABLE': 'test-table'})
+        environment.start(); self.addCleanup(environment.stop)
+
     def manifest(self):
         return {'schema_version': 1, 'consent': True, 'frame_id': 'sample', 'captured_at': '2026-10-24T00:00:00Z',
                 'model_version': 'test', 'image_key': 'raw/images/sample.png', 'image_version': 'image-v1',

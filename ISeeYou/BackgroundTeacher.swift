@@ -590,7 +590,7 @@ private struct TeacherPendingReceipt: Codable { let sample: String; let created:
 private final class TeacherNetworkResult: @unchecked Sendable { var data: Data?; var code: Int?; var error: Error? }
 private final class TeacherDownloadResult: @unchecked Sendable { var code: Int?; var error: Error? }
 private enum TeacherFailure: Error { case message(String) }
-private struct TeacherConnection: Codable {
+struct TeacherConnection: Codable {
     let endpoint: String, token: String
     static func load() -> TeacherConnection? {
         let query: [String: Any] = [kSecClass as String: kSecClassGenericPassword, kSecAttrService as String: "com.iseeyou.teacher", kSecAttrAccount as String: "connection"]

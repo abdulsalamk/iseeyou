@@ -37,6 +37,15 @@ def handler(event, context):
     method = event.get('requestContext', {}).get('http', {}).get('method')
     path = event.get('rawPath', '')
     try:
+        if path == '/corrections' or path.startswith('/corrections/'):
+            import corrections
+            body = event.get('body') or '{}'
+            if event.get('isBase64Encoded'):
+                body = base64.b64decode(body).decode()
+            if len(body) > 16000:
+                return reply(413, {'error': 'correction_too_large'})
+            code, response = corrections.handle(method, path, json.loads(body), s3, db, bucket, table)
+            return reply(code, response)
         if method == 'POST' and path == '/samples':
             body = event.get('body', '{}')
             if event.get('isBase64Encoded'):
